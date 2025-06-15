@@ -1,0 +1,38 @@
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: MemeHub-Backend
+  #mysql数据库配置信息
+  datasource:
+    url: jdbc:mysql://192.168.83.123:3306/memehub
+    username: root
+    password: 23321212
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+# mybatis-plus配置信息
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: is_delete # 全局逻辑删除字段名
+      logic-delete-value: 1 # 逻辑已删除值。可选，默认值为 1
+      logic-not-delete-value: 0 # 逻辑未删除值。可选，默认值为 0
+
+#knife4j配置
+knife4j:
+  enable: true
+  openapi:
+    title: Memehub-Backend接口文档
+    version: 1.0
+    group:
+      default:
+        group-name: 默认
+        api-rule: package
+        api-rule-resources:
+          - com.voracityrat.memehubbackend.controller
