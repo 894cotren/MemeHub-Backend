@@ -3,6 +3,7 @@ package com.voracityrat.memehubbackend.exception;
 
 /**
  * 方便跑异常的工具类
+ *  但是使用下来，感觉这个要么太宽，要么不好调试，可读性不好，所以闲置着吧。
  * @author grey
  */
 public class ThrowUtil {
