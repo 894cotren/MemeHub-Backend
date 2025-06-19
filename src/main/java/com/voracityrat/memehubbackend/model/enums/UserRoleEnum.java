@@ -41,4 +41,19 @@ public enum UserRoleEnum {
         return null;
     }
 
+    public static UserRoleEnum getRoleEnumByValue(String value) {
+
+        if (value == null || value.isEmpty()) {
+            return null;
+        }
+
+        for (UserRoleEnum userRoleEnum : UserRoleEnum.values()) {
+            if (userRoleEnum.value.equals(value)) {
+                return userRoleEnum;
+            }
+        }
+        return null;
+    }
+
+
 }

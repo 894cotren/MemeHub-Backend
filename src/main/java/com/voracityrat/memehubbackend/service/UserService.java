@@ -2,6 +2,9 @@ package com.voracityrat.memehubbackend.service;
 
 import com.voracityrat.memehubbackend.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.voracityrat.memehubbackend.model.vo.LoginUserVo;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * @author grey
@@ -27,4 +30,35 @@ public interface UserService extends IService<User> {
      * @return
      */
     String getEncryptPassword(String userPassword);
+
+    /**
+     * 用户登录
+     * @param userAccount
+     * @param userPassword
+     * @param request
+     * @return
+     */
+    LoginUserVo userLogin(String userAccount, String userPassword, HttpServletRequest request);
+
+
+    /**
+     * 根据传入的user获取到脱敏后的登录用户数据
+     * @param user
+     * @return
+     */
+    LoginUserVo getLoginUserVo(User user);
+
+    /**
+     * 获取当前登录用户
+     * @param request
+     * @return
+     */
+    User getLoginUser(HttpServletRequest request);
+
+    /**
+     * 当前用户退出登录
+     * @param request
+     * @return
+     */
+    boolean userLogout(HttpServletRequest request);
 }

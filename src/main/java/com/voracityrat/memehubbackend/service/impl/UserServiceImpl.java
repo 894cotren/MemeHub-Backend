@@ -3,14 +3,20 @@ package com.voracityrat.memehubbackend.service.impl;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.voracityrat.memehubbackend.constant.UserConstant;
 import com.voracityrat.memehubbackend.exception.BusinessException;
 import com.voracityrat.memehubbackend.exception.ErrorCode;
 import com.voracityrat.memehubbackend.model.entity.User;
 import com.voracityrat.memehubbackend.model.enums.UserRoleEnum;
+import com.voracityrat.memehubbackend.model.vo.LoginUserVo;
 import com.voracityrat.memehubbackend.service.UserService;
 import com.voracityrat.memehubbackend.mapper.UserMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
  * @author grey
@@ -18,6 +24,7 @@ import org.springframework.util.DigestUtils;
  * @createDate 2025-06-17 22:21:55
  */
 @Service
+@Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService {
 
@@ -70,6 +77,106 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     public String getEncryptPassword(String userPassword) {
         final String salt = "Ciallo～(∠・ω< )⌒★";
         return DigestUtils.md5DigestAsHex((salt + userPassword).getBytes());
+    }
+
+    @Override
+    public LoginUserVo userLogin(String userAccount, String userPassword, HttpServletRequest request) {
+        /**
+         * 1. 参数校验：
+         *    1. 非空，长度
+         * 2. 密码加密
+         * 3. 查表对比
+         *    1. 为空抛异常
+         * 4. 用户数据脱敏
+         * 5. 用户登录态保存
+         * 6. 返回用户脱敏信息
+         */
+        //参数校验：
+        if (StrUtil.hasBlank(userAccount, userPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+        }
+        //校验账户长度大于等于4小于等于20
+        if (userAccount.length() < 4 || userAccount.length() > 20) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户长度应为4-20之间");
+        }
+        //校验密码长度大于等于8 小于等于20
+        if (userPassword.length() < 8 || userPassword.length() > 20) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码长度应为8-20之间");
+        }
+
+        //密码加密
+        userPassword = getEncryptPassword(userPassword);
+
+        //查表对比
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.lambda().eq(User::getUserAccount, userAccount);
+        queryWrapper.lambda().eq(User::getUserPassword, userPassword);
+        User loginUser = this.getOne(queryWrapper);
+        //为空抛异常
+        if (loginUser == null) {
+            log.error("用户登录失败，账号或者密码错误");
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户名或密码错误");
+        }
+        //用户数据脱敏
+        LoginUserVo loginUserVo = getLoginUserVo(loginUser);
+        //用户登录态保存
+        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATUS, loginUserVo);
+        //返回用户脱敏信息
+        return loginUserVo;
+    }
+
+    @Override
+    public LoginUserVo getLoginUserVo(User user){
+        //用户数据脱敏
+        LoginUserVo loginUserVo = new LoginUserVo();
+        BeanUtils.copyProperties(user, loginUserVo);
+        return loginUserVo;
+    }
+
+    @Override
+    public User getLoginUser(HttpServletRequest request) {
+        /**
+         * 1. 从请求体里获取到对象
+         * 2. 判断是否空
+         *    1. 为空抛出异常
+         * 3. 查询用户信息，拿到最新的用户对象  ，防止缓存跟数据不一致。
+         * 4. 判断是否为空
+         *    1. 为空抛出异常  （可能被管理员封禁了）
+         * 5. 返回用户对象
+         */
+        //从请求体里获取到用户对象并转换
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATUS);
+        LoginUserVo loginUser=(LoginUserVo) userObj;
+        //判断是否空,id是否为空
+        if ((loginUser == null) || loginUser.getId()==null){
+            //为空抛出异常
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        //查询用户信息，拿到最新的用户对象  ，防止缓存跟数据不一致。
+        User laestUser = this.getById(loginUser.getId());
+        //判断是否为空
+        if (laestUser==null){
+            //为空抛出异常  （可能被管理员封禁了）
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        //返回用户对象
+        return laestUser;
+    }
+
+    @Override
+    public boolean userLogout(HttpServletRequest request){
+        /**
+         * 1. 从请求体session里获取当前用户，不需要转换
+         * 2. 判断是否为空
+         *    1. 为空抛出异常
+         * 3. session移除当前用户。
+         */
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATUS);
+        if (userObj==null){
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,"未登录");
+        }
+        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATUS);
+        return true;
     }
 }
 
