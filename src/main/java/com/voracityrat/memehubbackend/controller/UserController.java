@@ -1,15 +1,13 @@
 package com.voracityrat.memehubbackend.controller;
 
-import com.voracityrat.memehubbackend.annotaion.AuthCheck;
+
 import com.voracityrat.memehubbackend.common.BaseResponse;
 import com.voracityrat.memehubbackend.common.ResultUtil;
-import com.voracityrat.memehubbackend.constant.UserConstant;
 import com.voracityrat.memehubbackend.exception.BusinessException;
 import com.voracityrat.memehubbackend.exception.ErrorCode;
 import com.voracityrat.memehubbackend.model.dto.UserLoginRequest;
 import com.voracityrat.memehubbackend.model.dto.UserRegisterRequest;
 import com.voracityrat.memehubbackend.model.entity.User;
-import com.voracityrat.memehubbackend.model.enums.UserRoleEnum;
 import com.voracityrat.memehubbackend.model.vo.LoginUserVo;
 import com.voracityrat.memehubbackend.service.UserService;
 import org.springframework.util.ObjectUtils;

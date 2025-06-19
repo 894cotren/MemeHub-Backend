@@ -1,7 +1,6 @@
 package com.voracityrat.memehubbackend.aop;
 
 import com.voracityrat.memehubbackend.annotaion.AuthCheck;
-import com.voracityrat.memehubbackend.constant.UserConstant;
 import com.voracityrat.memehubbackend.exception.BusinessException;
 import com.voracityrat.memehubbackend.exception.ErrorCode;
 import com.voracityrat.memehubbackend.model.entity.User;
