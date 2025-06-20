@@ -1,4 +1,4 @@
-package com.voracityrat.memehubbackend.model.dto;
+package com.voracityrat.memehubbackend.model.dto.user;
 
 import lombok.Data;
 

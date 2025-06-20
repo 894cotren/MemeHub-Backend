@@ -63,7 +63,7 @@ public class AuthInterceptor {
         if (userRoleEnum==null){
             throw new BusinessException(ErrorCode.SYSTEM_ERROR);
         }
-        //如果权限不够并且不是管理员，就抛异常。
+        //如果用户权限不够所指定的权限，并且不是管理员，就抛异常。
         if (!mustRoleEnum.equals(userRoleEnum) && !userRoleEnum.equals(UserRoleEnum.ADMIN_USER)){
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }

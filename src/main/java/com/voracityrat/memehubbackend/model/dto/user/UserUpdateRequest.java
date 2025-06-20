@@ -1,25 +1,22 @@
-package com.voracityrat.memehubbackend.model.entity;
+package com.voracityrat.memehubbackend.model.dto.user;
 
-import com.baomidou.mybatisplus.annotation.*;
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Date;
 
-import lombok.Data;
-
 /**
- * 用户表
+ * 用户更新request
  *
- * @TableName user
+ * @author grey
  */
-@TableName(value = "user")
 @Data
-public class User implements Serializable {
+public class UserUpdateRequest implements Serializable {
+    private static final long serialVersionUID = 1L;
     /**
      * id
      */
-    @TableId(type = IdType.ASSIGN_ID)
-    private Long id;
+    private long id;
 
     /**
      * 账号
@@ -61,42 +58,16 @@ public class User implements Serializable {
      */
     private String vipNumber;
 
+
     /**
      * 收藏数
      */
     private Integer favoriteCount;
 
     /**
-     * 可收藏上限
-     */
-    private Integer favoriteLimit;
-
-    /**
      * 会员过期时间
      */
     private Date vipExpireTime;
 
-    /**
-     * 编辑时间 （业务更新）
-     */
-    private Date editTime;
 
-    /**
-     * 创建时间
-     */
-    private Date createTime;
-
-    /**
-     * 更新时间
-     */
-    private Date updateTime;
-
-    /**
-     * 是否删除
-     */
-    @TableLogic
-    private Integer isDelete;
-
-    @TableField(exist = false)
-    private static final long serialVersionUID = 1L;
 }

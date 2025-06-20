@@ -1,8 +1,13 @@
 package com.voracityrat.memehubbackend.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.voracityrat.memehubbackend.model.dto.user.UserAddRequest;
+import com.voracityrat.memehubbackend.model.dto.user.UserPageListRequest;
+import com.voracityrat.memehubbackend.model.dto.user.UserUpdateRequest;
 import com.voracityrat.memehubbackend.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.voracityrat.memehubbackend.model.vo.LoginUserVo;
+import com.voracityrat.memehubbackend.model.vo.UserVo;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -61,4 +66,35 @@ public interface UserService extends IService<User> {
      * @return
      */
     boolean userLogout(HttpServletRequest request);
+
+    /**
+     * 添加用户
+     *
+     * @param userAddRequest
+     * @return
+     */
+    boolean userAdd(UserAddRequest userAddRequest);
+
+    /**
+     * 更新用户
+     *
+     * @param userUpdateRequest
+     * @return
+     */
+    boolean updateUser(UserUpdateRequest userUpdateRequest);
+
+    /**
+     * 用户分页查询
+     *
+     * @param userPageListRequest
+     * @return
+     */
+    Page<UserVo> userPageList(UserPageListRequest userPageListRequest);
+
+    /**
+     * 用户User脱敏为UserVo
+     * @param user
+     * @return
+     */
+    UserVo getUserVo(User user);
 }

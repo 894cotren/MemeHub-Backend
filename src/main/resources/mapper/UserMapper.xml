@@ -15,6 +15,7 @@
         <result property="userRole" column="user_role"/>
         <result property="vipNumber" column="vip_number"/>
         <result property="favoriteCount" column="favorite_count"/>
+        <result property="favoriteLimit" column="favorite_limit"/>
         <result property="vipExpireTime" column="vip_expire_time"/>
         <result property="editTime" column="edit_time"/>
         <result property="createTime" column="create_time"/>
@@ -24,7 +25,7 @@
 
     <sql id="Base_Column_List">
         id,user_account,user_password,user_name,user_avatar,user_profile,
-        user_email,user_role,vip_number,favorite_count,vip_expire_time,
-        edit_time,create_time,update_time,is_delete
+        user_email,user_role,vip_number,favorite_count,favorite_limit,
+        vip_expire_time,edit_time,create_time,update_time,is_delete
     </sql>
 </mapper>
