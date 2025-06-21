@@ -249,13 +249,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "id非法");
         }
         String userAccount = userUpdateRequest.getUserAccount();
-        String userPassword = userUpdateRequest.getUserPassword();
-        //校验用户账号密码合规
-        checkUserAccountPassword(userAccount, userPassword);
+        //校验用户账号合规
+        //校验参数不为空
+        if (StrUtil.hasBlank(userAccount)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数不能为空");
+        }
+        //校验账户长度大于等于4小于等于20
+        if (userAccount.length() < 4 || userAccount.length() > 20) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户长度应为4-20之间");
+        }
         //转换对象
         User user = new User();
         BeanUtils.copyProperties(userUpdateRequest, user);
-        user.setUserPassword(getEncryptPassword(userPassword));
         //更新
         boolean result = this.updateById(user);
         //判断是否更新成功

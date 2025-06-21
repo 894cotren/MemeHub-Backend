@@ -50,12 +50,18 @@ public class UserVo implements Serializable {
     /**
      * 会员编号
      */
-    private Long vipNumber;
+    private String vipNumber;
 
     /**
      * 收藏数
      */
     private Integer favoriteCount;
+
+    /**
+     * 可收藏上限
+     */
+    private Integer favoriteLimit;
+
 
     /**
      * 会员过期时间

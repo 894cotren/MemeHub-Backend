@@ -51,7 +51,7 @@ public class LoginUserVo implements Serializable {
     /**
      * 会员编号
      */
-    private Long vipNumber;
+    private String vipNumber;
 
     /**
      * 收藏数
