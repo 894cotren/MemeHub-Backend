@@ -14,7 +14,6 @@ import lombok.Getter;
 public enum UserRoleEnum {
 
     COMMON_USER("用户", "user"),
-    VIP_USER("会员", "vip"),
     ADMIN_USER("管理员", "admin");
 
 
@@ -41,6 +40,11 @@ public enum UserRoleEnum {
         return null;
     }
 
+    /**
+     * 根据角色编码获取到对应角色的枚举类
+     * @param value
+     * @return
+     */
     public static UserRoleEnum getRoleEnumByValue(String value) {
 
         if (value == null || value.isEmpty()) {

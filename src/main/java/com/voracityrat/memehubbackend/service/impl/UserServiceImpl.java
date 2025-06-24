@@ -325,6 +325,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      */
     @Override
     public UserVo getUserVo(User user){
+        //非空校验
+        if (user==null){
+            return new UserVo();
+        }
         UserVo userVo = new UserVo();
         BeanUtils.copyProperties(user,userVo);
         return userVo;
@@ -346,7 +350,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         String userProfile = userPageListRequest.getUserProfile();
         String userEmail = userPageListRequest.getUserEmail();
         String userRole = userPageListRequest.getUserRole();
-        String vipNumber = userPageListRequest.getVipNumber();
         String sortField = userPageListRequest.getSortField();
         String sortOrder = userPageListRequest.getSortOrder();
 
@@ -354,7 +357,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.lambda().eq(StrUtil.isNotBlank(userAccount),User::getUserAccount,userAccount);
         queryWrapper.lambda().eq(StrUtil.isNotBlank(userEmail),User::getUserEmail,userEmail);
         queryWrapper.lambda().eq(StrUtil.isNotBlank(userRole),User::getUserRole,userRole);
-        queryWrapper.lambda().eq(StrUtil.isNotBlank(vipNumber),User::getVipNumber,vipNumber);
         queryWrapper.lambda().like(StrUtil.isNotBlank(userName),User::getUserName,userName);
         queryWrapper.lambda().like(StrUtil.isNotBlank(userProfile),User::getUserProfile,userProfile);
         queryWrapper.orderBy(StrUtil.isNotBlank(sortField), "descend".equals(sortOrder),sortField);

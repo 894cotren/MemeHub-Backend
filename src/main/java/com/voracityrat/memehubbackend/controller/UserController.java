@@ -171,6 +171,10 @@ public class UserController {
         }
         //进行查询
         User user = userService.getById(id);
+        //非空判断，如果为空，抛出无数据报错
+        if(user==null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
         return ResultUtil.success(userService.getUserVo(user));
     }
 

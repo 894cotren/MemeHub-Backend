@@ -44,29 +44,14 @@ public class LoginUserVo implements Serializable {
     private String userEmail;
 
     /**
-     * 用户角色：user/vip/admin 其他权益待定
+     * 用户角色：user/admin 其他权益待定
      */
     private String userRole;
-
-    /**
-     * 会员编号
-     */
-    private String vipNumber;
 
     /**
      * 收藏数
      */
     private Integer favoriteCount;
-
-    /**
-     * 会员过期时间
-     */
-    private Date vipExpireTime;
-
-    /**
-     * 编辑时间 （业务更新）
-     */
-    private Date editTime;
 
     /**
      * 创建时间

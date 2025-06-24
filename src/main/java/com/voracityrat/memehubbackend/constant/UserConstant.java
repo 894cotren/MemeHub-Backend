@@ -22,10 +22,7 @@ public interface UserConstant {
      * 管理员角色常量
      */
     String ADMIN_USER="admin";
-    /**
-     * 会员用户角色常量
-     */
-    String VIP_USER="vip";
+
 
     //endregion
 
