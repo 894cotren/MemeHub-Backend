@@ -1,6 +1,5 @@
 package com.voracityrat.memehubbackend.model.vo;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -12,7 +11,7 @@ import java.util.Date;
  * @TableName user
  */
 @Data
-public class LoginUserVo implements Serializable {
+public class LoginUserVO implements Serializable {
     /**
      * id
      */

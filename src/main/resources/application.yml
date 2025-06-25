@@ -2,7 +2,6 @@ server:
   port: 8123
   servlet:
     context-path: /api
-
 spring:
   application:
     name: MemeHub-Backend
@@ -12,6 +11,12 @@ spring:
     username: root
     password: 23321212
     driver-class-name: com.mysql.cj.jdbc.Driver
+  profiles:
+    active: local
+  #文件上传大小限制设置为10mb（默认1mb），这里得是servlet得限制，我们代码里面也是配置得10mb
+  servlet:
+    multipart:
+      max-request-size: 10MB
 
 # mybatis-plus配置信息
 mybatis-plus:

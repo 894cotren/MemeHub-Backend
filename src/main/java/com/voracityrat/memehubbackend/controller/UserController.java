@@ -11,8 +11,8 @@ import com.voracityrat.memehubbackend.exception.ErrorCode;
 import com.voracityrat.memehubbackend.model.dto.DeleteRequest;
 import com.voracityrat.memehubbackend.model.dto.user.*;
 import com.voracityrat.memehubbackend.model.entity.User;
-import com.voracityrat.memehubbackend.model.vo.LoginUserVo;
-import com.voracityrat.memehubbackend.model.vo.UserVo;
+import com.voracityrat.memehubbackend.model.vo.LoginUserVO;
+import com.voracityrat.memehubbackend.model.vo.UserVO;
 import com.voracityrat.memehubbackend.service.UserService;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
@@ -50,14 +50,14 @@ public class UserController {
      * 用户登录
      */
     @PostMapping("/login")
-    public BaseResponse<LoginUserVo> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
+    public BaseResponse<LoginUserVO> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
         if (ObjectUtils.isEmpty(userLoginRequest) || ObjectUtils.isEmpty(request) ) {
             return ResultUtil.failed(ErrorCode.PARAMS_ERROR, "登录请求体为空");
         }
         String userAccount = userLoginRequest.getUserAccount();
         String userPassword = userLoginRequest.getUserPassword();
 
-        LoginUserVo loginUserVo = userService.userLogin(userAccount, userPassword,request);
+        LoginUserVO loginUserVo = userService.userLogin(userAccount, userPassword, request);
         return ResultUtil.success(loginUserVo);
     }
 
@@ -65,7 +65,7 @@ public class UserController {
      * 获取当前用户
      */
     @GetMapping("/getLoginUser")
-    public BaseResponse<LoginUserVo> getLoginUser(HttpServletRequest request){
+    public BaseResponse<LoginUserVO> getLoginUser(HttpServletRequest request) {
         if (request==null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -147,14 +147,14 @@ public class UserController {
      */
     @PostMapping("/pageList")
     @AuthCheck(mustRole = UserConstant.ADMIN_USER)
-    public BaseResponse<Page<UserVo>> userPageList(@RequestBody UserPageListRequest userPageListRequest) {
+    public BaseResponse<Page<UserVO>> userPageList(@RequestBody UserPageListRequest userPageListRequest) {
 
         //校验非空
         if (ObjectUtils.isEmpty(userPageListRequest)) {
             return ResultUtil.failed(ErrorCode.PARAMS_ERROR);
         }
         //进行分页查询
-        Page<UserVo> userVoPage = userService.userPageList(userPageListRequest);
+        Page<UserVO> userVoPage = userService.userPageList(userPageListRequest);
         return ResultUtil.success(userVoPage);
     }
 
@@ -164,7 +164,7 @@ public class UserController {
      */
     @GetMapping("/getUserById")
     @AuthCheck(mustRole = UserConstant.ADMIN_USER)
-    public BaseResponse<UserVo> getUserVoById(long id) {
+    public BaseResponse<UserVO> getUserVoById(long id) {
         //参数校验
         if (id<=0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"非法id");

@@ -51,7 +51,7 @@ public class AuthInterceptor {
         UserRoleEnum mustRoleEnum = UserRoleEnum.getRoleEnumByValue(mustRole);
         //枚举对象为空应该报错吧。权限异常   （上了权限注解但是没指定权限的情况）
         if (mustRoleEnum==null){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"未指定权限等级");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注解未指定权限等级");
         }
         //获取到当前请求对象 ，再通过request获取当前用户
         RequestAttributes requestAttributes = RequestContextHolder.currentRequestAttributes();

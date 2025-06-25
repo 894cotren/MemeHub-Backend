@@ -13,8 +13,8 @@ import com.voracityrat.memehubbackend.model.dto.user.UserPageListRequest;
 import com.voracityrat.memehubbackend.model.dto.user.UserUpdateRequest;
 import com.voracityrat.memehubbackend.model.entity.User;
 import com.voracityrat.memehubbackend.model.enums.UserRoleEnum;
-import com.voracityrat.memehubbackend.model.vo.LoginUserVo;
-import com.voracityrat.memehubbackend.model.vo.UserVo;
+import com.voracityrat.memehubbackend.model.vo.LoginUserVO;
+import com.voracityrat.memehubbackend.model.vo.UserVO;
 import com.voracityrat.memehubbackend.service.UserService;
 import com.voracityrat.memehubbackend.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -88,7 +88,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
-    public LoginUserVo userLogin(String userAccount, String userPassword, HttpServletRequest request) {
+    public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
         /**
          * 1. 参数校验：
          *    1. 非空，长度
@@ -126,7 +126,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户名或密码错误");
         }
         //用户数据脱敏
-        LoginUserVo loginUserVo = getLoginUserVo(loginUser);
+        LoginUserVO loginUserVo = getLoginUserVo(loginUser);
         //用户登录态保存
         request.getSession().setAttribute(UserConstant.USER_LOGIN_STATUS, loginUserVo);
         //返回用户脱敏信息
@@ -134,9 +134,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
-    public LoginUserVo getLoginUserVo(User user){
+    public LoginUserVO getLoginUserVo(User user) {
         //用户数据脱敏
-        LoginUserVo loginUserVo = new LoginUserVo();
+        LoginUserVO loginUserVo = new LoginUserVO();
         BeanUtils.copyProperties(user, loginUserVo);
         return loginUserVo;
     }
@@ -154,7 +154,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
          */
         //从请求体里获取到用户对象并转换
         Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATUS);
-        LoginUserVo loginUser=(LoginUserVo) userObj;
+        LoginUserVO loginUser = (LoginUserVO) userObj;
         //判断是否空,id是否为空
         if ((loginUser == null) || loginUser.getId()==null){
             //为空抛出异常
@@ -277,7 +277,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return
      */
     @Override
-    public Page<UserVo> userPageList(UserPageListRequest userPageListRequest) {
+    public Page<UserVO> userPageList(UserPageListRequest userPageListRequest) {
         /**
          * 入参： UserPageListRequest
          * 1. 参数校验
@@ -298,18 +298,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (pageSize < 1) {
             pageSize = 5;
         }
-        Page<UserVo> userVoPage= null;
+        Page<UserVO> userVoPage = null;
         try {
             //对查询参数进行组装
             QueryWrapper<User> queryWrapper = getQueryWrapper(userPageListRequest);
             //进行分页查询
             Page<User> userPage = this.page(new Page<>(pageNum, pageSize), queryWrapper);
             //对分页查询结果进行数据脱敏
-            List<UserVo> userVoList  = userPage.getRecords().stream().map(this::getUserVo).collect(Collectors.toList());
+            List<UserVO> userVOList = userPage.getRecords().stream().map(this::getUserVo).collect(Collectors.toList());
             //返回脱敏后的分页查询结果
             userVoPage = new Page<>(pageNum,pageSize,userPage.getTotal());
             //保存脱敏后的分页数据
-            userVoPage.setRecords(userVoList);
+            userVoPage.setRecords(userVOList);
         } catch (Exception e) {
             log.error("分页查询异常：",e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR,"分页查询失败");
@@ -324,12 +324,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
      * @return
      */
     @Override
-    public UserVo getUserVo(User user){
+    public UserVO getUserVo(User user) {
         //非空校验
         if (user==null){
-            return new UserVo();
+            return new UserVO();
         }
-        UserVo userVo = new UserVo();
+        UserVO userVo = new UserVO();
         BeanUtils.copyProperties(user,userVo);
         return userVo;
     }
