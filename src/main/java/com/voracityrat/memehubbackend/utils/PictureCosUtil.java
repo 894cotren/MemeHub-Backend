@@ -63,7 +63,7 @@ public class PictureCosUtil {
         //获取一个随机数16位
         String uuid = RandomUtil.randomString(16);
         String originalFilename = multipartFile.getOriginalFilename();
-        //拼接文件名
+        //拼接文件名   (文件名我们自定义，不使用源文件名，保证长度合适，内容合适)
         String uploadFileName = String.format("%s_%s.%s", DateUtil.formatDate(new Date()), uuid, FileUtil.getSuffix(originalFilename));
         //拼接唯一key的  可以为不同用户放在不同的文件路径下
         String uploadPath = String.format("%s/%s", uploadPathPrefix, uploadFileName);
@@ -117,6 +117,10 @@ public class PictureCosUtil {
         }
     }
 
+    /**
+     * 校验上传的图片源文件规格是否合适的。
+     * @param multipartFile
+     */
     private void validPicture(MultipartFile multipartFile) {
         /**
          * 1. 不能为空

@@ -37,7 +37,10 @@ create table if not exists picture
     pic_height   int                                null comment '图片高度',
     pic_scale    double                             null comment '图片宽高比例',
     pic_format   varchar(32)                        null comment '图片格式',
-    pic_status   tinyint  default 1                 not null comment '图片状态 0-审核通过 1-待审核 2-审核驳回 3-违规下架',
+    review_status int   default 0                   not null comment '图片状态 0-待审核 1-审核通过 2-审核驳回 3-违规下架',
+    review_message varchar(512)                     null comment '审核备注',
+    reviewer_id  bigint                             null comment '审核人 ID',
+    review_time  datetime                           null comment '审核时间',
     user_id      bigint                             not null comment '创建用户 id',
     create_time  datetime default CURRENT_TIMESTAMP not null comment '创建时间',
     update_time  datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
@@ -45,7 +48,8 @@ create table if not exists picture
     INDEX idx_introduction (introduction),
     INDEX idx_category (category),
     INDEX idx_tags (tags),
-    INDEX idx_user_id (user_id)
+    INDEX idx_user_id (user_id),
+    INDEX idx_reviewStatus (review_status)
 ) comment '图片表' collate = utf8mb4_unicode_ci;
 
 

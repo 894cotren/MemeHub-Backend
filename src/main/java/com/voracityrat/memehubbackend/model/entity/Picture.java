@@ -70,10 +70,24 @@ public class Picture implements Serializable {
     private String picFormat;
 
     /**
-     * 图片状态 0-审核通过 1-待审核 2-审核驳回 3-违规下架
+     * 图片状态 0-待审核 1-审核通过 2-审核驳回 3-违规下架
      */
-    private Integer picStatus;
+    private Integer reviewStatus;
 
+    /**
+     * 审核备注
+     */
+    private String reviewMessage;
+
+    /**
+     * 审核人 ID
+     */
+    private Long reviewerId;
+
+    /**
+     * 审核时间
+     */
+    private Date reviewTime;
     /**
      * 创建用户 id
      */
