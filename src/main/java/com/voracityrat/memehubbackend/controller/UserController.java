@@ -90,7 +90,7 @@ public class UserController {
      * 用户添加
      */
     @PostMapping("/add")
-    @AuthCheck(mustRole = UserConstant.ADMIN_USER)
+    @AuthCheck(mustRole = UserConstant.ADMIN)
     public BaseResponse<Boolean> userAdd(@RequestBody UserAddRequest userAddRequest) {
         if (ObjectUtils.isEmpty(userAddRequest)) {
             return ResultUtil.failed(ErrorCode.PARAMS_ERROR);
@@ -103,7 +103,7 @@ public class UserController {
      * 用户删除
      */
     @PostMapping("/delete")
-    @AuthCheck(mustRole = UserConstant.ADMIN_USER)
+    @AuthCheck(mustRole = UserConstant.ADMIN)
     public BaseResponse<Boolean> userDelete(@RequestBody DeleteRequest deleteRequest) {
         /**
          * 入参：用户id，封装一个deleterequest请求体来获取id吧
@@ -130,7 +130,7 @@ public class UserController {
      * 用户更新
      */
     @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN_USER)
+    @AuthCheck(mustRole = UserConstant.ADMIN)
     public BaseResponse<Boolean> userUpdate(@RequestBody UserUpdateRequest userUpdateRequest) {
 
         //校验非空
@@ -146,7 +146,7 @@ public class UserController {
      * 分页查询用户
      */
     @PostMapping("/pageList")
-    @AuthCheck(mustRole = UserConstant.ADMIN_USER)
+    @AuthCheck(mustRole = UserConstant.ADMIN)
     public BaseResponse<Page<UserVO>> userPageList(@RequestBody UserPageListRequest userPageListRequest) {
 
         //校验非空
@@ -163,7 +163,7 @@ public class UserController {
      * 根据用户ID查询用户
      */
     @GetMapping("/getUserById")
-    @AuthCheck(mustRole = UserConstant.ADMIN_USER)
+    @AuthCheck(mustRole = UserConstant.ADMIN)
     public BaseResponse<UserVO> getUserVoById(long id) {
         //参数校验
         if (id<=0){

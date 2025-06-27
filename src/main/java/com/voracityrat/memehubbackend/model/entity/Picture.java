@@ -8,6 +8,7 @@ import lombok.Data;
 
 /**
  * 图片表
+ * @author voracityrat
  * @TableName picture
  */
 @TableName(value ="picture")

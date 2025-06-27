@@ -16,7 +16,7 @@ spring:
   #文件上传大小限制设置为10mb（默认1mb），这里得是servlet得限制，我们代码里面也是配置得10mb
   servlet:
     multipart:
-      max-request-size: 10MB
+      max-file-size: 10MB
 
 # mybatis-plus配置信息
 mybatis-plus:

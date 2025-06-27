@@ -16,12 +16,12 @@ public interface UserConstant {
     /**
      * 普通用户角色常量
      */
-    String COMMON_USER="user";
+    String USER ="user";
 
     /**
      * 管理员角色常量
      */
-    String ADMIN_USER="admin";
+    String ADMIN ="admin";
 
 
     //endregion
