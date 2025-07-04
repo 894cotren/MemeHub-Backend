@@ -25,4 +25,10 @@
         user_email,user_role,favorite_count,favorite_limit,create_time,
         update_time,is_delete
     </sql>
+    <select id="getUserNameByIds" resultType="com.voracityrat.memehubbackend.model.entity.User">
+        select id,user_name from user where id in
+        <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+            #{userId}
+        </foreach>
+    </select>
 </mapper>

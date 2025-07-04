@@ -10,6 +10,7 @@ import com.voracityrat.memehubbackend.model.vo.LoginUserVO;
 import com.voracityrat.memehubbackend.model.vo.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * @author grey
@@ -97,4 +98,13 @@ public interface UserService extends IService<User> {
      * @return
      */
     UserVO getUserVo(User user);
+
+
+    /**
+     * 根据用户们的id获取他们的名称，用于图片上传者信息展示
+     *
+     * @param userIds
+     * @return
+     */
+    List<User> getUserNameByIds(List<Long> userIds);
 }

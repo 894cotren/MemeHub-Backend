@@ -22,7 +22,10 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -35,6 +38,9 @@ import java.util.stream.Collectors;
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         implements UserService {
+
+    @Resource
+    private UserMapper userMapper;
 
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
@@ -332,6 +338,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         UserVO userVo = new UserVO();
         BeanUtils.copyProperties(user,userVo);
         return userVo;
+    }
+
+    @Override
+    public List<User> getUserNameByIds(List<Long> userIds) {
+        if (userIds == null) {
+            return new ArrayList<>();
+        }
+        return userMapper.getUserNameByIds(userIds);
     }
 
     /**

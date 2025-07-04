@@ -53,3 +53,13 @@ create table if not exists picture
 ) comment '图片表' collate = utf8mb4_unicode_ci;
 
 
+-- 图片表
+create table if not exists user_picture
+(
+    id          bigint auto_increment comment 'id' primary key,
+    user_id     bigint                             not null comment '用户 id',
+    pic_id      bigint                             not null comment '图片 id',
+    create_time datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    INDEX idx_user_id (user_id, pic_id)
+) comment '用户收藏图片-收藏表' collate = utf8mb4_unicode_ci;
+

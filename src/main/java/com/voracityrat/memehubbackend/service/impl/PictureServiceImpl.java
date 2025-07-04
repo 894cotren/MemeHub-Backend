@@ -1,10 +1,11 @@
 package com.voracityrat.memehubbackend.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.qcloud.cos.utils.StringUtils;
 import com.voracityrat.memehubbackend.exception.BusinessException;
 import com.voracityrat.memehubbackend.exception.ErrorCode;
 import com.voracityrat.memehubbackend.exception.ThrowUtil;
@@ -12,19 +13,25 @@ import com.voracityrat.memehubbackend.model.dto.file.UploadPictureResult;
 import com.voracityrat.memehubbackend.model.dto.picture.PicturePagesRequest;
 import com.voracityrat.memehubbackend.model.dto.picture.PictureUpdateRequest;
 import com.voracityrat.memehubbackend.model.dto.picture.PictureUploadRequest;
+import com.voracityrat.memehubbackend.model.dto.picture.PictureVOPagesRequest;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.User;
+import com.voracityrat.memehubbackend.model.vo.PicturePagesVO;
 import com.voracityrat.memehubbackend.model.vo.PictureVO;
 import com.voracityrat.memehubbackend.service.PictureService;
 import com.voracityrat.memehubbackend.mapper.PictureMapper;
+import com.voracityrat.memehubbackend.service.UserService;
 import com.voracityrat.memehubbackend.utils.PictureCosUtil;
-import jdk.nashorn.internal.ir.IfNode;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author voracityrat
@@ -40,6 +47,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private PictureMapper pictureMapper;
+
+    @Resource
+    private UserService userService;
 
     @Override
     public PictureVO uploadPicture(PictureUploadRequest pictureUploadRequest, MultipartFile multipartFile, User loginUser) {
@@ -145,11 +155,176 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             pageNum = 1;
         }
         if (pageSize < 1) {
-            pageSize = 7;
+            pageSize = 10;
         }
+     /*   //下面这个是手写sql的自定义分页方式。
         Page<Picture> picturePages = pictureMapper.getPicturePages(new Page<>(pageNum, pageSize), picturePagesRequest);
+*/
+        //对分页参数进行条件拼接
+        QueryWrapper<Picture> pagesQueryWrapper = getPicturePagesQueryWrapper(picturePagesRequest);
+        //分页查询
+        Page<Picture> picturePages = this.page(new Page<>(pageNum, pageSize), pagesQueryWrapper);
         ThrowUtil.throwIf(picturePages==null,ErrorCode.OPERATION_ERROR);
         return picturePages;
+    }
+
+    @Override
+    public Page<PicturePagesVO> getPictureVOPages(PictureVOPagesRequest pictureVOPagesRequest) {
+        /**
+         * 1. 参数校验
+         * 2. 限制分页大小，防止爬虫。
+         * 3. 进行分页搜索
+         * 4. 进行数据脱敏
+         * 5. 返回脱敏数据
+         */
+        ThrowUtil.throwIf(pictureVOPagesRequest == null, ErrorCode.PARAMS_ERROR);
+        long pageNum = pictureVOPagesRequest.getPageNum();
+        long pageSize = pictureVOPagesRequest.getPageSize();
+        if (pageNum < 1) {
+            pageNum = 1;
+        }
+        if (pageSize < 1) {
+            pageSize = 10;
+        }
+        //限制分页大小，防止爬虫。
+        ThrowUtil.throwIf(pageSize > 20, ErrorCode.OPERATION_ERROR, "普通用户不能使用每页20条以上分页");
+        //进行分页搜索
+        //拼接分页查询条件
+        QueryWrapper<Picture> queryWrapper = getPictureVOPagesQueryWrapper(pictureVOPagesRequest);
+        Page<Picture> picturePage = this.page(new Page<>(pageNum, pageSize), queryWrapper);
+        long total = picturePage.getTotal();
+        //进行数据脱敏
+        List<Picture> records = picturePage.getRecords();
+        List<PicturePagesVO> picturePagesVOList = getPicturePagesVOList(records);
+        Page<PicturePagesVO> picturePagesVOPage = new Page<>(pageNum, pageSize);
+        picturePagesVOPage.setTotal(total);
+        picturePagesVOPage.setRecords(picturePagesVOList);
+        return picturePagesVOPage;
+    }
+
+    /**
+     * 将图片实体类转换为可以给用户看的脱敏后的PicturePagesVO
+     *
+     * @param pictureList
+     * @return
+     */
+    @Override
+    public List<PicturePagesVO> getPicturePagesVOList(List<Picture> pictureList) {
+        List<PicturePagesVO> picturePagesVOList = new ArrayList<>(pictureList.size());
+        if (pictureList==null || pictureList.size()==0){
+            return picturePagesVOList;
+        }
+        List<Long> userIds = new ArrayList<>();
+
+        //数据脱敏，收集用户id
+        for (Picture picture : pictureList) {
+            picturePagesVOList.add(PicturePagesVO.objToPagesVo(picture));
+            Long userId = picture.getUserId();
+            //收集用户id用于批量查询
+            if (userId != null && userId > 0) {
+                userIds.add(userId);
+            }
+        }
+        //对用户id进行批量查询    (说真的我不太确定这种查出来内存里筛选的快还是我优化好的只查询用户名的sql快)
+        List<User> users = userService.getUserNameByIds(userIds);
+        //对users进行id分组  userid->User
+        Map<Long, List<User>> collect = users.stream().collect(Collectors.groupingBy(User::getId));
+        //遍历picturePagesVOList 去为每个对象设置用户信息,脱敏后的用户信息
+        picturePagesVOList.forEach(picturePagesVO -> {
+            Long userId = picturePagesVO.getUserId();
+            if (collect.containsKey(userId)) {
+                picturePagesVO.setUserName(collect.get(userId).get(0).getUserName());
+            }
+        });
+        return picturePagesVOList;
+    }
+
+
+    /**
+     * 获取用户分页查询拼接后的QueryWrapper
+     *
+     * @param pictureVOPagesRequest
+     * @return
+     */
+    private QueryWrapper<Picture> getPictureVOPagesQueryWrapper(PictureVOPagesRequest pictureVOPagesRequest) {
+        QueryWrapper<Picture> queryWrapper = new QueryWrapper<>();
+        if (pictureVOPagesRequest == null) {
+            return queryWrapper;
+        }
+        // 从对象中取值
+        String name = pictureVOPagesRequest.getPicName();
+        String introduction = pictureVOPagesRequest.getIntroduction();
+        String category = pictureVOPagesRequest.getCategory();
+        List<String> tags = pictureVOPagesRequest.getTags();
+        String searchText = pictureVOPagesRequest.getSearchText();
+        // 从多字段中搜索
+        if (StrUtil.isNotBlank(searchText)) {
+            // 需要拼接查询条件
+            queryWrapper.and(
+                    qw -> qw.lambda().like(Picture::getPicName, searchText)
+                            .or()
+                            .like(Picture::getIntroduction, searchText)
+            );
+        }
+        queryWrapper.lambda().like(StrUtil.isNotBlank(name), Picture::getPicName, name);
+        queryWrapper.lambda().like(StrUtil.isNotBlank(introduction), Picture::getIntroduction, introduction);
+        queryWrapper.lambda().eq(StrUtil.isNotBlank(category), Picture::getCategory, category);
+        // JSON 数组查询
+        if (CollUtil.isNotEmpty(tags)) {
+            for (String tag : tags) {
+                queryWrapper.like("tags", "\"" + tag + "\"");
+            }
+        }
+        // 用户只能查询审核通过的图片
+        queryWrapper.lambda().eq(Picture::getReviewStatus, 1);
+        return queryWrapper;
+    }
+
+    /**
+     * 获取管理员分页查询条件拼接查询对象
+     *
+     * @param picturePagesRequest
+     * @return
+     */
+    private QueryWrapper<Picture> getPicturePagesQueryWrapper(PicturePagesRequest picturePagesRequest) {
+        QueryWrapper<Picture> queryWrapper = new QueryWrapper<>();
+        if (picturePagesRequest == null) {
+            return queryWrapper;
+        }
+        // 从对象中取值
+        Long id = picturePagesRequest.getId();
+        String name = picturePagesRequest.getPicName();
+        String introduction = picturePagesRequest.getIntroduction();
+        String category = picturePagesRequest.getCategory();
+        List<String> tags = picturePagesRequest.getTags();
+        String searchText = picturePagesRequest.getSearchText();
+        Long userId = picturePagesRequest.getUserId();
+        String reviewMessage = picturePagesRequest.getReviewMessage();
+        Integer reviewStatus = picturePagesRequest.getReviewStatus();
+        // 从多字段中搜索
+        if (StrUtil.isNotBlank(searchText)) {
+            // 需要拼接查询条件
+            queryWrapper.and(
+                    qw -> qw.lambda().like(Picture::getPicName, searchText)
+                            .or()
+                            .like(Picture::getIntroduction, searchText)
+            );
+        }
+        queryWrapper.lambda().eq(ObjUtil.isNotEmpty(id), Picture::getId, id);
+        queryWrapper.lambda().eq(ObjUtil.isNotEmpty(userId), Picture::getUserId, userId);
+        queryWrapper.lambda().like(StrUtil.isNotBlank(name), Picture::getPicName, name);
+        queryWrapper.lambda().like(StrUtil.isNotBlank(introduction), Picture::getIntroduction, introduction);
+        queryWrapper.lambda().eq(StrUtil.isNotBlank(category), Picture::getCategory, category);
+        queryWrapper.lambda().like(StrUtil.isNotBlank(reviewMessage), Picture::getReviewMessage, reviewMessage);
+        // JSON 数组查询
+        if (CollUtil.isNotEmpty(tags)) {
+            for (String tag : tags) {
+                queryWrapper.like("tags", "\"" + tag + "\"");
+            }
+        }
+        //审核状态
+        queryWrapper.lambda().eq(reviewStatus != null, Picture::getReviewStatus, reviewStatus);
+        return queryWrapper;
     }
 
     private void validPicture(Picture picture) {

@@ -73,7 +73,7 @@ public class PicturePagesRequest extends PageRequest {
     private Date endTime;
 
     /**
-     * 综合搜索词  可以模糊搜索名称、简介、标签、审核备注
+     * 综合搜索词  可以模糊搜索名称、简介、标签
      */
     private String searchText;
 

@@ -9,13 +9,13 @@ import com.voracityrat.memehubbackend.constant.UserConstant;
 import com.voracityrat.memehubbackend.exception.BusinessException;
 import com.voracityrat.memehubbackend.exception.ErrorCode;
 import com.voracityrat.memehubbackend.exception.ThrowUtil;
-import com.voracityrat.memehubbackend.model.dto.picture.PicturePagesRequest;
-import com.voracityrat.memehubbackend.model.dto.picture.PictureUpdateRequest;
-import com.voracityrat.memehubbackend.model.dto.picture.PictureUploadRequest;
+import com.voracityrat.memehubbackend.model.dto.picture.*;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.User;
+import com.voracityrat.memehubbackend.model.vo.PicturePagesVO;
 import com.voracityrat.memehubbackend.model.vo.PictureVO;
 import com.voracityrat.memehubbackend.service.PictureService;
+import com.voracityrat.memehubbackend.service.UserPictureService;
 import com.voracityrat.memehubbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -38,6 +38,9 @@ public class PictureController {
 
     @Resource
     private PictureService pictureService;
+
+    @Resource
+    private UserPictureService userPictureService;
 
     @PostMapping("/upload")
     @AuthCheck(mustRole = UserConstant.ADMIN)
@@ -67,7 +70,7 @@ public class PictureController {
 
 
     /**
-     * 管理员
+     * 管理员根据id查询
      * @param id
      * @return
      */
@@ -81,6 +84,12 @@ public class PictureController {
         return ResultUtil.success(picture);
     }
 
+    /**
+     * 管理员分页查询 ，返回未脱敏图片信息
+     *
+     * @param picturePagesRequest
+     * @return
+     */
     @PostMapping("/getPicturePages")
     @AuthCheck(mustRole = UserConstant.ADMIN)
     public BaseResponse<Page<Picture>> getPicturePages(@RequestBody PicturePagesRequest picturePagesRequest){
@@ -88,4 +97,72 @@ public class PictureController {
         Page<Picture> picturePages = pictureService.getPicturePages(picturePagesRequest);
         return ResultUtil.success(picturePages);
     }
+
+
+    /**
+     * 用户分页查询，返回高度脱敏图片信息
+     *
+     * @param pictureVOPagesRequest
+     * @return
+     */
+    @PostMapping("/getPicturePagesVO")
+    @AuthCheck(mustRole = UserConstant.ADMIN)
+    public BaseResponse<Page<PicturePagesVO>> getPicturePagesVO(@RequestBody PictureVOPagesRequest pictureVOPagesRequest) {
+        ThrowUtil.throwIf(pictureVOPagesRequest == null, ErrorCode.PARAMS_ERROR);
+        int pageSize = pictureVOPagesRequest.getPageSize();
+        ThrowUtil.throwIf(pageSize > 20, ErrorCode.OPERATION_ERROR, "用户不允许查询每页20条以上");
+        Page<PicturePagesVO> pages = pictureService.getPictureVOPages(pictureVOPagesRequest);
+        return ResultUtil.success(pages);
+    }
+
+
+    /**
+     * 用户收藏图片
+     *
+     * @param favoritePictureRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/favoritePicture")
+    public BaseResponse<Boolean> userFavoritePicture(FavoritePictureRequest favoritePictureRequest, HttpServletRequest request) {
+        ThrowUtil.throwIf(favoritePictureRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        favoritePictureRequest.setUserId(loginUser.getId());
+        boolean result = userPictureService.userFavoritePicture(favoritePictureRequest);
+        return ResultUtil.success(result);
+    }
+
+
+    /**
+     * 用户取消收藏图片
+     *
+     * @param favoritePictureRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/unfavoritePicture")
+    public BaseResponse<Boolean> userUnfavoritePicture(FavoritePictureRequest favoritePictureRequest, HttpServletRequest request) {
+        ThrowUtil.throwIf(favoritePictureRequest == null, ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        favoritePictureRequest.setUserId(loginUser.getId());
+        boolean result = userPictureService.userUnfavoritePicture(favoritePictureRequest);
+        return ResultUtil.success(result);
+    }
+
+    /**
+     * 用户分页查询收藏信息
+     * @param favoritePicturePagesRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/getFavoritePicturePages")
+    public BaseResponse<Page<PicturePagesVO>> getFavoritePicturePages(FavoritePicturePagesRequest favoritePicturePagesRequest,
+                                                                HttpServletRequest request){
+        ThrowUtil.throwIf(favoritePicturePagesRequest==null,ErrorCode.PARAMS_ERROR);
+        User loginUser = userService.getLoginUser(request);
+        favoritePicturePagesRequest.setUserId(loginUser.getId());
+        Page<PicturePagesVO> favoritePicturePages = userPictureService.getFavoritePicturePages(favoritePicturePagesRequest);
+        return ResultUtil.success(favoritePicturePages);
+    }
+
 }

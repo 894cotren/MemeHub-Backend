@@ -50,8 +50,11 @@
             <if test="query.category!=null and query.category!=''">
                 and category Like CONCAT('%', #{query.category}, '%')
             </if>
-            <if test="query.tags!=null and query.tags!=''">
-                and tags =#{query.tags}
+            <if test="query.tags!=null and !query.tags.isEmpty()">
+                and
+                <foreach collection="query.tags" item="tag" open="(" close=")" separator="and">
+                    tags Like CONCAT('%', #{tag}, '%')
+                </foreach>
             </if>
             <if test="query.reviewStatus!=null">
                 and review_status =#{query.reviewStatus}

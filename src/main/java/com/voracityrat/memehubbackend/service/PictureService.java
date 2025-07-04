@@ -4,11 +4,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.voracityrat.memehubbackend.model.dto.picture.PicturePagesRequest;
 import com.voracityrat.memehubbackend.model.dto.picture.PictureUpdateRequest;
 import com.voracityrat.memehubbackend.model.dto.picture.PictureUploadRequest;
+import com.voracityrat.memehubbackend.model.dto.picture.PictureVOPagesRequest;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.voracityrat.memehubbackend.model.entity.User;
+import com.voracityrat.memehubbackend.model.vo.PicturePagesVO;
 import com.voracityrat.memehubbackend.model.vo.PictureVO;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 /**
 * @author voracityrat
@@ -48,4 +52,19 @@ public interface PictureService extends IService<Picture> {
      * @return
      */
     Page<Picture> getPicturePages(PicturePagesRequest picturePagesRequest);
+
+    /**
+     * 用户分页查询，获得脱敏后的数据
+     *
+     * @param pictureVOPagesRequest
+     * @return
+     */
+    Page<PicturePagesVO> getPictureVOPages(PictureVOPagesRequest pictureVOPagesRequest);
+
+    /**
+     * 将图片数据脱敏为用户能看的PicturePagesVO   这里是list 脱敏
+     * @param pictureList
+     * @return
+     */
+    List<PicturePagesVO> getPicturePagesVOList(List<Picture> pictureList);
 }

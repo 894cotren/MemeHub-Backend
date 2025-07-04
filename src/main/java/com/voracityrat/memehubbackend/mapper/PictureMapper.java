@@ -15,7 +15,10 @@ import org.apache.ibatis.annotations.Param;
 */
 public interface PictureMapper extends BaseMapper<Picture> {
 
-    Page<Picture> getPicturePages(IPage<Picture> page,@Param("query") PicturePagesRequest picturePagesRequest);
+    /**
+     * 暂时不用手写sql,暂时还是用mybatis-plus拼接条件的方式进行查询
+     */
+    //Page<Picture> getPicturePages(IPage<Picture> page,@Param("query") PicturePagesRequest picturePagesRequest);
 
 }
 
