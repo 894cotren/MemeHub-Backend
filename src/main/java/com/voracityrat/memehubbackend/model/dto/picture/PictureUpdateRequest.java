@@ -17,11 +17,10 @@ public class PictureUpdateRequest {
      */
     private Long id;
 
-//    /**
-//     * 图片 url
-//     */
-//    不更新url，更新url干嘛
-//    private String picUrl;
+    /**
+     * 图片 url
+     */
+    private String picUrl;
 
     /**
      * 图片名称

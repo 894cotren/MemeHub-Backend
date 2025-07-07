@@ -6,8 +6,8 @@ import com.voracityrat.memehubbackend.model.dto.user.UserPageListRequest;
 import com.voracityrat.memehubbackend.model.dto.user.UserUpdateRequest;
 import com.voracityrat.memehubbackend.model.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.voracityrat.memehubbackend.model.vo.LoginUserVO;
-import com.voracityrat.memehubbackend.model.vo.UserVO;
+import com.voracityrat.memehubbackend.model.vo.user.LoginUserVO;
+import com.voracityrat.memehubbackend.model.vo.user.UserVO;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;

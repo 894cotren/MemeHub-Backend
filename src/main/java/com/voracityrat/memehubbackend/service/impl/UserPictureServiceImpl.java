@@ -10,7 +10,7 @@ import com.voracityrat.memehubbackend.model.dto.picture.FavoritePicturePagesRequ
 import com.voracityrat.memehubbackend.model.dto.picture.FavoritePictureRequest;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.UserPicture;
-import com.voracityrat.memehubbackend.model.vo.PicturePagesVO;
+import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
 import com.voracityrat.memehubbackend.service.PictureService;
 import com.voracityrat.memehubbackend.service.UserPictureService;
 import com.voracityrat.memehubbackend.mapper.UserPictureMapper;

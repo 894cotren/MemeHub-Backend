@@ -1,6 +1,8 @@
 package com.voracityrat.memehubbackend.controller;
 
 
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.voracityrat.memehubbackend.annotaion.AuthCheck;
 import com.voracityrat.memehubbackend.common.BaseResponse;
@@ -12,17 +14,23 @@ import com.voracityrat.memehubbackend.exception.ThrowUtil;
 import com.voracityrat.memehubbackend.model.dto.picture.*;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.User;
-import com.voracityrat.memehubbackend.model.vo.PicturePagesVO;
-import com.voracityrat.memehubbackend.model.vo.PictureVO;
+import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
+import com.voracityrat.memehubbackend.model.vo.picture.PictureTagCategoryVO;
+import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
 import com.voracityrat.memehubbackend.service.PictureService;
 import com.voracityrat.memehubbackend.service.UserPictureService;
 import com.voracityrat.memehubbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  *
@@ -52,7 +60,6 @@ public class PictureController {
         //图片上传
         PictureVO pictureVO = pictureService.uploadPicture(pictureUploadRequest, multipartFile, loginUser);
         return ResultUtil.success(pictureVO);
-
     }
 
     /**
@@ -83,6 +90,26 @@ public class PictureController {
         Picture picture = pictureService.getPictureByIdForAdmin(id);
         return ResultUtil.success(picture);
     }
+
+    /**
+     * 根据图片id获取到PictureVO  脱敏后图片信息
+     * @param id
+     * @return
+     */
+    @GetMapping("/getPictureVOById")
+    public BaseResponse<PictureVO> getPictureVOById(@RequestParam Long id){
+        if (id ==null || id<=0){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Picture picture = pictureService.getPictureByIdForAdmin(id);
+        PictureVO pictureVO = new PictureVO();
+        BeanUtils.copyProperties(picture,pictureVO);
+        if (!StrUtil.isBlank(picture.getTags())){
+            pictureVO.setTags(JSONUtil.toList(picture.getTags(),String.class));
+        }
+        return ResultUtil.success(pictureVO);
+    }
+
 
     /**
      * 管理员分页查询 ，返回未脱敏图片信息
@@ -163,6 +190,18 @@ public class PictureController {
         favoritePicturePagesRequest.setUserId(loginUser.getId());
         Page<PicturePagesVO> favoritePicturePages = userPictureService.getFavoritePicturePages(favoritePicturePagesRequest);
         return ResultUtil.success(favoritePicturePages);
+    }
+
+
+    @GetMapping("/getTagCategoryList")
+    public BaseResponse<PictureTagCategoryVO> getTagCategoryList(){
+        //前期暂时自定义标签和分类
+        List<String> tagList= Arrays.asList("日常","二次元","生活");
+        List<String> categoryList=Arrays.asList("地狱","日常","宠物","哲学","抽象","治愈","蓝调");
+        PictureTagCategoryVO pictureTagCategoryVO = new PictureTagCategoryVO();
+        pictureTagCategoryVO.setTagList(tagList);
+        pictureTagCategoryVO.setCategoryList(categoryList);
+        return ResultUtil.success(pictureTagCategoryVO);
     }
 
 }

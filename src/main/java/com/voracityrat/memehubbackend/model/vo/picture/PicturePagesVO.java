@@ -1,8 +1,7 @@
-package com.voracityrat.memehubbackend.model.vo;
+package com.voracityrat.memehubbackend.model.vo.picture;
 
 import cn.hutool.json.JSONUtil;
 import com.voracityrat.memehubbackend.model.entity.Picture;
-import com.voracityrat.memehubbackend.model.entity.User;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
 
@@ -10,7 +9,7 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * 图片VO类
+ * 图片VO类                （没有图片规格信息的VO）
  * @author voracityrat
  */
 @Data

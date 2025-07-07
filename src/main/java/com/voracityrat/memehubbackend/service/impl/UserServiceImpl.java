@@ -13,8 +13,8 @@ import com.voracityrat.memehubbackend.model.dto.user.UserPageListRequest;
 import com.voracityrat.memehubbackend.model.dto.user.UserUpdateRequest;
 import com.voracityrat.memehubbackend.model.entity.User;
 import com.voracityrat.memehubbackend.model.enums.UserRoleEnum;
-import com.voracityrat.memehubbackend.model.vo.LoginUserVO;
-import com.voracityrat.memehubbackend.model.vo.UserVO;
+import com.voracityrat.memehubbackend.model.vo.user.LoginUserVO;
+import com.voracityrat.memehubbackend.model.vo.user.UserVO;
 import com.voracityrat.memehubbackend.service.UserService;
 import com.voracityrat.memehubbackend.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +25,6 @@ import org.springframework.util.DigestUtils;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 

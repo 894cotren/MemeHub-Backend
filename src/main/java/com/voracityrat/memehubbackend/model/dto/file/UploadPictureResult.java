@@ -2,6 +2,9 @@ package com.voracityrat.memehubbackend.model.dto.file;
 
 import lombok.Data;
 
+/**
+ * 对接上传cos返回图片信息值的专门的类。
+ */
 @Data
 public class UploadPictureResult {
 

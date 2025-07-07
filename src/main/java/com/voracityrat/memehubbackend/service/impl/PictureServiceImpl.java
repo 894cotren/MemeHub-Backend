@@ -1,8 +1,10 @@
 package com.voracityrat.memehubbackend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -16,8 +18,8 @@ import com.voracityrat.memehubbackend.model.dto.picture.PictureUploadRequest;
 import com.voracityrat.memehubbackend.model.dto.picture.PictureVOPagesRequest;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.User;
-import com.voracityrat.memehubbackend.model.vo.PicturePagesVO;
-import com.voracityrat.memehubbackend.model.vo.PictureVO;
+import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
+import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
 import com.voracityrat.memehubbackend.service.PictureService;
 import com.voracityrat.memehubbackend.mapper.PictureMapper;
 import com.voracityrat.memehubbackend.service.UserService;
@@ -117,6 +119,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         long count = this.count(queryWrapper);
         ThrowUtil.throwIf(count<=0,ErrorCode.NOT_FOUND_ERROR);
         //进行图片更新
+        //如果图片的tags不为空，需要将list转换json过来并复制到将要更新的对象里去
+        List<String> tags = pictureUpdateRequest.getTags();
+        if (tags!=null && !tags.isEmpty()){
+            String tagsJson= JSONUtil.toJsonStr(tags);
+            picture.setTags(tagsJson);
+        }
         boolean result = this.updateById(picture);
         ThrowUtil.throwIf(!result,ErrorCode.OPERATION_ERROR,"图片更新失败");
         return true;

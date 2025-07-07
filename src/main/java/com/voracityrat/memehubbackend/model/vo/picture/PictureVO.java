@@ -1,19 +1,17 @@
-package com.voracityrat.memehubbackend.model.vo;
+package com.voracityrat.memehubbackend.model.vo.picture;
 
 import cn.hutool.json.JSONUtil;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.User;
-import com.voracityrat.memehubbackend.service.UserService;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
 
-import javax.annotation.Resource;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
 
 /**
- * 图片VO类
+ * 图片VO类   （有详细图片参数的VO）
  */
 @Data
 public class PictureVO implements Serializable {

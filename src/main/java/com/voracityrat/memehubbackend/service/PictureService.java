@@ -8,8 +8,8 @@ import com.voracityrat.memehubbackend.model.dto.picture.PictureVOPagesRequest;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.voracityrat.memehubbackend.model.entity.User;
-import com.voracityrat.memehubbackend.model.vo.PicturePagesVO;
-import com.voracityrat.memehubbackend.model.vo.PictureVO;
+import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
+import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
