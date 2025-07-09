@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -137,7 +136,7 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
      */
     @Override
     public Set<Long> favoriteInPictureIds(List<Long> picIds, Long loginUserId) {
-        if (picIds == null && loginUserId == null) {
+        if (picIds == null || loginUserId == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "判断用户是否收藏图片失败");
         }
         if (picIds.isEmpty()) {
