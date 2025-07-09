@@ -116,7 +116,7 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户为空或用户无效");
         }
         pageNum = pageNum < 1 ? 1L : pageNum;
-        pageSize = pageSize < 1 ? 10L : pageNum;
+        pageSize = pageSize < 1 ? 10L : pageSize;
 
         //分页查询
         Page<Picture> favoritePicturePages = userPictureMapper.getFavoritePicturePages(new Page<>(pageNum, pageSize), userId);
