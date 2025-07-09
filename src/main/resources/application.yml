@@ -7,7 +7,7 @@ spring:
     name: MemeHub-Backend
   #mysql数据库配置信息
   datasource:
-    url: jdbc:mysql://192.168.83.123:3306/memehub
+    url: jdbc:mysql://192.168.83.123:3306/memehub?serverTimezone=Asia/Shanghai
     username: root
     password: 23321212
     driver-class-name: com.mysql.cj.jdbc.Driver

@@ -57,14 +57,15 @@ public interface PictureService extends IService<Picture> {
      * 用户分页查询，获得脱敏后的数据
      *
      * @param pictureVOPagesRequest
+     * @param loginUserId
      * @return
      */
-    Page<PicturePagesVO> getPictureVOPages(PictureVOPagesRequest pictureVOPagesRequest);
+    Page<PicturePagesVO> getPictureVOPages(PictureVOPagesRequest pictureVOPagesRequest, Long loginUserId);
 
     /**
      * 将图片数据脱敏为用户能看的PicturePagesVO   这里是list 脱敏
      * @param pictureList
      * @return
      */
-    List<PicturePagesVO> getPicturePagesVOList(List<Picture> pictureList);
+    List<PicturePagesVO> getPicturePagesVOList(List<Picture> pictureList,Long loginUserId);
 }

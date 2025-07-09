@@ -55,6 +55,13 @@ public class PicturePagesVO implements Serializable {
      */
     private String userName;
 
+    /**
+     * 当前用户是否收藏
+     */
+    private Boolean isFavorite=false;
+
+
+
     private static final long serialVersionUID = 1L;
 
     /**

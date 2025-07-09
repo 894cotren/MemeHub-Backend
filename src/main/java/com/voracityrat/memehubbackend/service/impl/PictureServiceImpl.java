@@ -1,7 +1,6 @@
 package com.voracityrat.memehubbackend.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -22,6 +21,7 @@ import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
 import com.voracityrat.memehubbackend.service.PictureService;
 import com.voracityrat.memehubbackend.mapper.PictureMapper;
+import com.voracityrat.memehubbackend.service.UserPictureService;
 import com.voracityrat.memehubbackend.service.UserService;
 import com.voracityrat.memehubbackend.utils.PictureCosUtil;
 import org.springframework.beans.BeanUtils;
@@ -29,10 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -52,6 +49,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private UserPictureService userPictureService;
 
     @Override
     public PictureVO uploadPicture(PictureUploadRequest pictureUploadRequest, MultipartFile multipartFile, User loginUser) {
@@ -177,7 +177,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     }
 
     @Override
-    public Page<PicturePagesVO> getPictureVOPages(PictureVOPagesRequest pictureVOPagesRequest) {
+    public Page<PicturePagesVO> getPictureVOPages(PictureVOPagesRequest pictureVOPagesRequest, Long loginUserId) {
         /**
          * 1. 参数校验
          * 2. 限制分页大小，防止爬虫。
@@ -203,7 +203,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         long total = picturePage.getTotal();
         //进行数据脱敏
         List<Picture> records = picturePage.getRecords();
-        List<PicturePagesVO> picturePagesVOList = getPicturePagesVOList(records);
+        List<PicturePagesVO> picturePagesVOList = getPicturePagesVOList(records,loginUserId);
         Page<PicturePagesVO> picturePagesVOPage = new Page<>(pageNum, pageSize);
         picturePagesVOPage.setTotal(total);
         picturePagesVOPage.setRecords(picturePagesVOList);
@@ -217,13 +217,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
      * @return
      */
     @Override
-    public List<PicturePagesVO> getPicturePagesVOList(List<Picture> pictureList) {
+    public List<PicturePagesVO> getPicturePagesVOList(List<Picture> pictureList, Long loginUserId) {
         List<PicturePagesVO> picturePagesVOList = new ArrayList<>(pictureList.size());
         if (pictureList==null || pictureList.size()==0){
             return picturePagesVOList;
         }
+        //图片的用户id为了给图片赋值author
         List<Long> userIds = new ArrayList<>();
 
+        //图片id后面用于判断用户是否收藏
+        List<Long> picIds= new ArrayList<>();
         //数据脱敏，收集用户id
         for (Picture picture : pictureList) {
             picturePagesVOList.add(PicturePagesVO.objToPagesVo(picture));
@@ -232,16 +235,25 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             if (userId != null && userId > 0) {
                 userIds.add(userId);
             }
+            //收集图片id用于判断是否收藏
+            picIds.add(picture.getId());
         }
         //对用户id进行批量查询    (说真的我不太确定这种查出来内存里筛选的快还是我优化好的只查询用户名的sql快)
         List<User> users = userService.getUserNameByIds(userIds);
         //对users进行id分组  userid->User
         Map<Long, List<User>> collect = users.stream().collect(Collectors.groupingBy(User::getId));
+        //新增收藏功能，新增isFavorite字段，如果是用户收藏的话这个字段需要设定为ture (字段默认为false)
+        //查询当前用户在当前这分页图片里收藏了哪些
+        Set<Long> favoritePicIds= userPictureService.favoriteInPictureIds(picIds,loginUserId);
         //遍历picturePagesVOList 去为每个对象设置用户信息,脱敏后的用户信息
         picturePagesVOList.forEach(picturePagesVO -> {
             Long userId = picturePagesVO.getUserId();
             if (collect.containsKey(userId)) {
                 picturePagesVO.setUserName(collect.get(userId).get(0).getUserName());
+            }
+            //如果当前图片id在用户喜欢的图片id里，标记一下
+            if (favoritePicIds.contains(picturePagesVO.getId())){
+                picturePagesVO.setIsFavorite(true);
             }
         });
         return picturePagesVOList;
@@ -309,6 +321,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         Long userId = picturePagesRequest.getUserId();
         String reviewMessage = picturePagesRequest.getReviewMessage();
         Integer reviewStatus = picturePagesRequest.getReviewStatus();
+        Date startTime = picturePagesRequest.getStartTime();
+        Date endTime = picturePagesRequest.getEndTime();
+        //排序字段
+        String sortField = picturePagesRequest.getSortField();
+        String sortOrder = picturePagesRequest.getSortOrder();
+
         // 从多字段中搜索
         if (StrUtil.isNotBlank(searchText)) {
             // 需要拼接查询条件
@@ -332,6 +350,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
         //审核状态
         queryWrapper.lambda().eq(reviewStatus != null, Picture::getReviewStatus, reviewStatus);
+
+        // 时间范围查询
+        if (startTime != null) {
+            queryWrapper.lambda().ge(Picture::getCreateTime, startTime);
+        }
+        if (endTime != null) {
+            queryWrapper.lambda().le(Picture::getCreateTime, endTime);
+        }
+        //排序
+        queryWrapper.orderBy(StrUtil.isNotBlank(sortField), "ascend".equals(sortOrder),sortField);
         return queryWrapper;
     }
 

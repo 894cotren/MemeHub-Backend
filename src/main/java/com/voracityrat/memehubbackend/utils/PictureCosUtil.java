@@ -4,6 +4,7 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
 import com.qcloud.cos.COSClient;
 import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PutObjectResult;
@@ -24,6 +25,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 封装CosUtil 使工具使用更加贴切我们的业务需求
@@ -136,6 +138,8 @@ public class PictureCosUtil {
         //3文件后缀校验
         //获取文件后缀
         String suffix = FileUtil.getSuffix(multipartFile.getOriginalFilename());
+        //将后缀转为小写统一判断
+        suffix= Objects.requireNonNull(suffix).toLowerCase();
         final List<String> ALLOW_PICTURE_SUFFIX = Arrays.asList("jepg", "png", "jpg", "webp");
         ThrowUtil.throwIf(!ALLOW_PICTURE_SUFFIX.contains(suffix), ErrorCode.PARAMS_ERROR, "不支持该图片格式上传");
     }

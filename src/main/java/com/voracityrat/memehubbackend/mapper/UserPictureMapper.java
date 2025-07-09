@@ -6,6 +6,9 @@ import com.voracityrat.memehubbackend.model.entity.UserPicture;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+import java.util.Set;
+
 /**
 * @author voracityrat
 * @description 针对表【user_picture(用户收藏图片-收藏表)】的数据库操作Mapper
@@ -22,6 +25,7 @@ public interface UserPictureMapper extends BaseMapper<UserPicture> {
      */
     Page<Picture> getFavoritePicturePages(Page<Picture> page, @Param("userId") long userId);
 
+    Set<Long> favoriteInPictureIds(@Param("pictureIds") List<Long> picIds, @Param("userId") Long loginUserId);
 }
 
 

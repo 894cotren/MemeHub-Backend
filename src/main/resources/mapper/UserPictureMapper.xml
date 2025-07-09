@@ -23,4 +23,11 @@
                  where  up.user_id=#{userId} and p.review_status =1 and p.is_delete = 0
                 order by up.create_time desc
     </select>
+    <select id="favoriteInPictureIds" resultType="java.lang.Long">
+        select up.pic_id from user_picture up
+                         where up.user_id=#{userId}  and up.pic_id in
+        <foreach collection="pictureIds" item="picId" open="(" separator="," close=")">
+            #{picId}
+        </foreach>
+    </select>
 </mapper>
