@@ -58,13 +58,13 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
         if (userId == null || picId == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-
         //检查是否已收藏
         QueryWrapper<UserPicture> queryWrapper = new QueryWrapper<>();
         queryWrapper.lambda().eq(UserPicture::getPicId, picId);
         queryWrapper.lambda().eq(UserPicture::getUserId, userId);
         long count = this.count(queryWrapper);
         ThrowUtil.throwIf(count > 0L, ErrorCode.OPERATION_ERROR, "已收藏");
+        //TODO 这里应该添加一个收藏计数的，我们的收藏上限是200张。
         //插入参数组装
         UserPicture userPicture = new UserPicture();
         BeanUtils.copyProperties(favoritePictureRequest, userPicture);
@@ -115,7 +115,7 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户为空或用户无效");
         }
         pageNum = pageNum < 1 ? 1L : pageNum;
-        pageSize = pageSize < 1 ? 10L : pageSize;
+        pageSize = pageSize < 1 ? 12L : pageSize;
 
         //分页查询
         Page<Picture> favoritePicturePages = userPictureMapper.getFavoritePicturePages(new Page<>(pageNum, pageSize), userId);

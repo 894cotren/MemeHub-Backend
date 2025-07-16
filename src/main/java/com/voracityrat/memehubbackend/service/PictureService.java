@@ -1,10 +1,7 @@
 package com.voracityrat.memehubbackend.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.voracityrat.memehubbackend.model.dto.picture.PicturePagesRequest;
-import com.voracityrat.memehubbackend.model.dto.picture.PictureUpdateRequest;
-import com.voracityrat.memehubbackend.model.dto.picture.PictureUploadRequest;
-import com.voracityrat.memehubbackend.model.dto.picture.PictureVOPagesRequest;
+import com.voracityrat.memehubbackend.model.dto.picture.*;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.voracityrat.memehubbackend.model.entity.User;
@@ -32,10 +29,12 @@ public interface PictureService extends IService<Picture> {
 
     /**
      * 管理员更新图片信息
+     *
      * @param pictureUpdateRequest
+     * @param loginUser
      * @return
      */
-    boolean updatePicture(PictureUpdateRequest pictureUpdateRequest);
+    boolean updatePicture(PictureUpdateRequest pictureUpdateRequest, User loginUser);
 
 
     /**
@@ -68,4 +67,14 @@ public interface PictureService extends IService<Picture> {
      * @return
      */
     List<PicturePagesVO> getPicturePagesVOList(List<Picture> pictureList,Long loginUserId);
+
+
+    /**
+     * 图片审核
+     *
+     * @param pictureReviewRequest
+     * @param loginUser
+     */
+    void doPictureReview(PictureReviewRequest pictureReviewRequest, User loginUser);
+
 }

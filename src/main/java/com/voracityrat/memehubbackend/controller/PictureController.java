@@ -23,13 +23,11 @@ import com.voracityrat.memehubbackend.service.UserPictureService;
 import com.voracityrat.memehubbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -52,7 +50,6 @@ public class PictureController {
     private UserPictureService userPictureService;
 
     @PostMapping("/upload")
-    @AuthCheck(mustRole = UserConstant.ADMIN)
     public BaseResponse<PictureVO> uploadPicture(@RequestPart("file")MultipartFile multipartFile,
                                                  PictureUploadRequest pictureUploadRequest,
                                                  HttpServletRequest request){
@@ -64,15 +61,16 @@ public class PictureController {
     }
 
     /**
-     * 仅管理员可用更新
+     * 通用的图片更新   更新图片的只能是用户自己或者是管理员，用户更新需要再次审核
      * @param pictureUpdateRequest
      * @return
      */
     @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN)
-    public BaseResponse<Boolean> updatePicture(@RequestBody PictureUpdateRequest pictureUpdateRequest){
+    public BaseResponse<Boolean> updatePicture(@RequestBody PictureUpdateRequest pictureUpdateRequest,
+                                               HttpServletRequest request){
         ThrowUtil.throwIf(pictureUpdateRequest==null, ErrorCode.PARAMS_ERROR);
-        boolean result = pictureService.updatePicture(pictureUpdateRequest);
+        User loginUser = userService.getLoginUser(request);
+        boolean result = pictureService.updatePicture(pictureUpdateRequest,loginUser);
         return ResultUtil.success(result);
     }
 
@@ -189,6 +187,10 @@ public class PictureController {
                                                                 HttpServletRequest request){
         ThrowUtil.throwIf(favoritePicturePagesRequest==null,ErrorCode.PARAMS_ERROR);
         User loginUser = userService.getLoginUser(request);
+        //这里严谨点校验一下当前用户是否为传入的吧，毕竟只能自己查自己收藏
+        if (!loginUser.getId().equals(favoritePicturePagesRequest.getUserId())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户只能查看自己收藏列表");
+        }
         favoritePicturePagesRequest.setUserId(loginUser.getId());
         Page<PicturePagesVO> favoritePicturePages = userPictureService.getFavoritePicturePages(favoritePicturePagesRequest);
         return ResultUtil.success(favoritePicturePages);
@@ -217,6 +219,7 @@ public class PictureController {
      * @return
      */
     @PostMapping("/deletePictureById")
+    @AuthCheck(mustRole = UserConstant.ADMIN)
     public BaseResponse<Boolean> deletePictureById(@RequestBody DeleteRequest deleteRequest){
         if (deleteRequest ==null || deleteRequest.getId() <=0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -228,4 +231,22 @@ public class PictureController {
         return ResultUtil.success(true);
     }
 
+    /**
+     * 管理员审核图片
+     *
+     * @param pictureReviewRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/pictureReview")
+    @AuthCheck(mustRole = UserConstant.ADMIN)
+    public BaseResponse<Boolean> doPictureReview(@RequestBody PictureReviewRequest pictureReviewRequest,
+                                               HttpServletRequest request) {
+        if (pictureReviewRequest == null || pictureReviewRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        pictureService.doPictureReview(pictureReviewRequest, loginUser);
+        return ResultUtil.success(true);
+    }
 }

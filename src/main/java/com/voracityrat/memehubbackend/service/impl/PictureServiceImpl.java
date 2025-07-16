@@ -7,16 +7,17 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.voracityrat.memehubbackend.annotaion.AuthCheck;
+import com.voracityrat.memehubbackend.constant.UserConstant;
 import com.voracityrat.memehubbackend.exception.BusinessException;
 import com.voracityrat.memehubbackend.exception.ErrorCode;
 import com.voracityrat.memehubbackend.exception.ThrowUtil;
 import com.voracityrat.memehubbackend.model.dto.file.UploadPictureResult;
-import com.voracityrat.memehubbackend.model.dto.picture.PicturePagesRequest;
-import com.voracityrat.memehubbackend.model.dto.picture.PictureUpdateRequest;
-import com.voracityrat.memehubbackend.model.dto.picture.PictureUploadRequest;
-import com.voracityrat.memehubbackend.model.dto.picture.PictureVOPagesRequest;
+import com.voracityrat.memehubbackend.model.dto.picture.*;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.User;
+import com.voracityrat.memehubbackend.model.enums.PictureReviewEnum;
+import com.voracityrat.memehubbackend.model.enums.UserRoleEnum;
 import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
 import com.voracityrat.memehubbackend.service.PictureService;
@@ -87,19 +88,39 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         picture.setPicScale(uploadPictureResult.getPicScale());
         picture.setPicFormat(uploadPictureResult.getPicFormat());
         picture.setUserId(loginUser.getId());
+        this.fillReviewParams(picture,loginUser);
         //如果传入的图片id不为空，那么得设置进来根据这个id更新。
         if(pictureId!=null){
             picture.setId(pictureId);
             picture.setUpdateTime(new Date());
         }
+
         //插入到数据库，如果没有id就是添加，那么会把id回写过来的，所以可以返回该对象
         boolean result = this.saveOrUpdate(picture);
         ThrowUtil.throwIf(!result,ErrorCode.SYSTEM_ERROR,"图片上传失败，数据库操作失败");
         return PictureVO.objToVo(picture);
     }
 
+    /*
+        填充图片审核信息。
+     */
+    private void fillReviewParams(Picture picture, User loginUser) {
+        //如果用户是管理员的话自动审核，如果用户是普通用户，那么就需要将字段设置为待审核
+        String userRole = loginUser.getUserRole();
+        UserRoleEnum userRoleEnum = UserRoleEnum.getRoleEnumByValue(userRole);
+        if (UserRoleEnum.ADMIN_USER == userRoleEnum) {
+            //管理员
+            picture.setReviewStatus(PictureReviewEnum.PASS.getValue());
+            picture.setReviewMessage("管理员自动审核通过");
+            picture.setReviewerId(loginUser.getId());
+        } else {
+            //普通用户
+            picture.setReviewStatus(PictureReviewEnum.REVIEWING.getValue());
+        }
+    }
+
     @Override
-    public boolean updatePicture(PictureUpdateRequest pictureUpdateRequest) {
+    public boolean updatePicture(PictureUpdateRequest pictureUpdateRequest, User loginUser) {
         /**
          * 1. 参数校验
          *    1. 更新对象不能为空
@@ -114,10 +135,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         BeanUtils.copyProperties(pictureUpdateRequest,picture);
         validPicture(picture);
         //查询验证图片是否存在！
-        QueryWrapper<Picture> queryWrapper=new QueryWrapper<>();
-        queryWrapper.lambda().eq(Picture::getId,picture.getId());
-        long count = this.count(queryWrapper);
-        ThrowUtil.throwIf(count<=0,ErrorCode.NOT_FOUND_ERROR);
+        Picture oldPicture = this.getById(pictureUpdateRequest.getId());
+        ThrowUtil.throwIf(oldPicture==null,ErrorCode.NOT_FOUND_ERROR);
+        //权限校验，只能图片上传者本人，或者管理员更新
+        if (!loginUser.getId().equals(oldPicture.getUserId()) && !loginUser.getUserRole().equals(UserConstant.ADMIN)){
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,"只能图片上传者或者管理员可以更改图片信息");
+        }
         //进行图片更新
         //如果图片的tags不为空，需要将list转换json过来并复制到将要更新的对象里去
         List<String> tags = pictureUpdateRequest.getTags();
@@ -125,6 +148,8 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             String tagsJson= JSONUtil.toJsonStr(tags);
             picture.setTags(tagsJson);
         }
+        //图片审核信息更新， 如果是用户更新，那么需要将审核信息更改为待审核,如果是管理员更新，那么直接自动审核
+        this.fillReviewParams(picture,loginUser);
         boolean result = this.updateById(picture);
         ThrowUtil.throwIf(!result,ErrorCode.OPERATION_ERROR,"图片更新失败");
         return true;
@@ -259,6 +284,37 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         return picturePagesVOList;
     }
 
+    @AuthCheck(mustRole = UserConstant.ADMIN)
+    @Override
+    public void doPictureReview(PictureReviewRequest pictureReviewRequest, User loginUser) {
+        // 1. 参数校验
+        ThrowUtil.throwIf(pictureReviewRequest == null, ErrorCode.PARAMS_ERROR);
+        Long id = pictureReviewRequest.getId();
+        Integer reviewStatus = pictureReviewRequest.getReviewStatus();
+        String reviewMessage = pictureReviewRequest.getReviewMessage();
+        PictureReviewEnum reviewEnum = PictureReviewEnum.getReviewEnumByValue(reviewStatus);
+        if (id == null || reviewEnum == null) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR);
+        }
+        //2. 图片是否存在校验
+        Picture oldPicture = this.getById(id);
+        ThrowUtil.throwIf(oldPicture == null, ErrorCode.NOT_FOUND_ERROR);
+        //3. 图片审核状态校验，避免重复审核
+        if (reviewEnum.getValue() == oldPicture.getReviewStatus()) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "请不要重复审核");
+        }
+        //4. 图片审核结果更新
+        Picture newPicture = new Picture();
+        newPicture.setId(id);
+        newPicture.setReviewStatus(reviewEnum.getValue());
+        newPicture.setReviewMessage(reviewMessage);
+        newPicture.setReviewerId(loginUser.getId());
+        boolean result = this.updateById(newPicture);
+        if (!result) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "审核操作失败");
+        }
+    }
+
 
     /**
      * 获取用户分页查询拼接后的QueryWrapper
@@ -296,7 +352,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             }
         }
         // 用户只能查询审核通过的图片
-        queryWrapper.lambda().eq(Picture::getReviewStatus, 1);
+        queryWrapper.lambda().eq(Picture::getReviewStatus, PictureReviewEnum.PASS.getValue());
+        //排序 ,时间倒叙排，这里写死了。
+        queryWrapper.orderBy(true,false,"create_time");
         return queryWrapper;
     }
 
