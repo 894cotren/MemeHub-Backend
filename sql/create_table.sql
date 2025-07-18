@@ -27,6 +27,7 @@ create table if not exists user
 create table if not exists picture
 (
     id           bigint auto_increment comment 'id' primary key,
+    origin_url   varchar(512)                       null comment '源图片 url',
     pic_url      varchar(512)                       not null comment '图片 url',
     pic_name     varchar(128)                       null comment '图片名称',
     introduction varchar(512)                       null comment '简介',
@@ -53,7 +54,7 @@ create table if not exists picture
 ) comment '图片表' collate = utf8mb4_unicode_ci;
 
 
--- 图片表
+-- 用户收藏表
 create table if not exists user_picture
 (
     id          bigint auto_increment comment 'id' primary key,

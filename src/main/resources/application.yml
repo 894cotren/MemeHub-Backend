@@ -2,6 +2,10 @@ server:
   port: 8123
   servlet:
     context-path: /api
+    session:
+      #前端cookie 15天过期   匹配 session15天过期。 实现登录15天过期
+      cookie:
+        max-age: 1296000
 spring:
   application:
     name: MemeHub-Backend
@@ -17,6 +21,9 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB
+  #配置session存储15天过期   "我们session目前只存储了登录用户的信息"
+  session:
+    timeout: 1296000
 
 # mybatis-plus配置信息
 mybatis-plus:

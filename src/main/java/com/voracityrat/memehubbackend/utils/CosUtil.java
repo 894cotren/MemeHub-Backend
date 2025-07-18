@@ -1,5 +1,6 @@
 package com.voracityrat.memehubbackend.utils;
 
+import cn.hutool.core.io.FileUtil;
 import com.qcloud.cos.COSClient;
 import com.qcloud.cos.model.*;
 import com.qcloud.cos.model.ciModel.persistence.PicOperations;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 通用的文件上传的一个工具类
@@ -79,7 +82,19 @@ public class CosUtil {
         PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, key, file);
         //添加获取图片基本信息的设置
         PicOperations picOperations = new PicOperations();
+        //设置返回原图信息
         picOperations.setIsPicInfo(1);
+        //设置将图片额外处理一份webp格式的图片出来    :此处配置处理规则
+        List<PicOperations.Rule> rules =new ArrayList<>();
+
+        String webpKey = FileUtil.mainName(key)+".webp";
+        PicOperations.Rule compressRule =new PicOperations.Rule();
+        compressRule.setRule("imageMogr2/format/webp");
+        compressRule.setBucket(bucketName);
+        compressRule.setFileId(webpKey);
+        rules.add(compressRule);
+        //将规则添加进操作对象里    参考文档:https://cloud.tencent.com/document/product/436/113299
+        picOperations.setRules(rules);
         putObjectRequest.setPicOperations(picOperations);
         return cosClient.putObject(putObjectRequest);
     }

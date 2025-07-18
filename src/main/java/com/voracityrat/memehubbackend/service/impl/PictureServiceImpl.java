@@ -80,6 +80,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         UploadPictureResult uploadPictureResult = pictureCosUtil.pictureUpload(multipartFile, uploadPathPrefix);
         // 3. 把图片基本信息封装，保存到数据库，获取到图片的id
         Picture picture = new Picture();
+        picture.setOriginUrl(uploadPictureResult.getOriginUrl());
         picture.setPicUrl(uploadPictureResult.getUrl());
         picture.setPicName(uploadPictureResult.getPicName());
         picture.setPicSize(uploadPictureResult.getPicSize());

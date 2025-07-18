@@ -1,21 +1,20 @@
 package com.voracityrat.memehubbackend.utils;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.NumberUtil;
 import cn.hutool.core.util.RandomUtil;
-import cn.hutool.core.util.StrUtil;
 import com.qcloud.cos.COSClient;
-import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PutObjectResult;
-import com.qcloud.cos.model.ciModel.persistence.CIUploadResult;
+import com.qcloud.cos.model.ciModel.persistence.CIObject;
 import com.qcloud.cos.model.ciModel.persistence.ImageInfo;
+import com.qcloud.cos.model.ciModel.persistence.ProcessResults;
 import com.voracityrat.memehubbackend.config.CosClientConfig;
 import com.voracityrat.memehubbackend.exception.BusinessException;
 import com.voracityrat.memehubbackend.exception.ErrorCode;
 import com.voracityrat.memehubbackend.exception.ThrowUtil;
 import com.voracityrat.memehubbackend.model.dto.file.UploadPictureResult;
-import com.voracityrat.memehubbackend.model.dto.picture.PictureUploadRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -77,25 +76,24 @@ public class PictureCosUtil {
             file = File.createTempFile(uploadPath, null);
             //为该文件填充数据
             multipartFile.transferTo(file);
+            //TODO 我们这里好像没有做文件上传大小的限制呢。只有配置文件里限制了下servlet可接受的最大文件为10m
             //上传文件
             putObjectResult = cosUtil.putPictureObject(uploadPath, file);
             //4. 封装图片参数并返回
-            //从返回结果里获取到图片基础信息
+            //从返回结果里获取到源图片基础信息
             ImageInfo imageInfo = putObjectResult.getCiUploadResult().getOriginalInfo().getImageInfo();
-            //获取图片宽高并计算宽高比
-            int picWidth = imageInfo.getWidth();
-            int picHeight = imageInfo.getHeight();
-            double picScale = NumberUtil.round(picWidth * 1.0 / picHeight, 2).doubleValue();
-
-            UploadPictureResult uploadPictureResult = new UploadPictureResult();
-            uploadPictureResult.setUrl(cosClientConfig.getHost()+"/"+uploadPath);
-            uploadPictureResult.setPicName(FileUtil.mainName(originalFilename));
-            uploadPictureResult.setPicSize(FileUtil.size(file));
-            uploadPictureResult.setPicWidth(picWidth);
-            uploadPictureResult.setPicHeight(picHeight);
-            uploadPictureResult.setPicScale(picScale);
-            uploadPictureResult.setPicFormat(imageInfo.getFormat());
-            return uploadPictureResult;
+            //从返回结果里获取到处理过的图片结果
+            ProcessResults processResults = putObjectResult.getCiUploadResult().getProcessResults();
+            List<CIObject> objectList = processResults.getObjectList();
+            //如果处理结果有值不为空，说明我们压缩成功，走压缩成功的逻辑。
+            if (CollUtil.isNotEmpty(objectList)){
+                //获取到处理后的结果，我们只定义了一个压缩图的rule，所以只有一个结果
+                CIObject compressedObject = objectList.get(0);
+                //封装压缩图的返回结果
+                return buildUploadPictureResult(uploadPath, originalFilename, file,compressedObject);
+            }
+            //否则走原本逻辑
+            return buildUploadPictureResult(imageInfo, uploadPath, originalFilename, file);
         } catch (Exception e) {
             log.error("文件上传错误：", e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "文件上传失败");
@@ -103,6 +101,60 @@ public class PictureCosUtil {
             //删除临时文件
             this.deleteTempFile(file);
         }
+    }
+
+    /**
+     * 这个是用于封装压缩后的图片的返回信息的。这里是走有压缩图片逻辑
+     * @param uploadPath
+     * @param originalFilename
+     * @param file
+     * @param compressedObject
+     * @return
+     */
+    private UploadPictureResult buildUploadPictureResult(String uploadPath, String originalFilename, File file, CIObject compressedObject) {
+        //获取图片宽高并计算宽高比
+        int picWidth = compressedObject.getWidth();
+        int picHeight = compressedObject.getHeight();
+        double picScale = NumberUtil.round(picWidth * 1.0 / picHeight, 2).doubleValue();
+        UploadPictureResult uploadPictureResult = new UploadPictureResult();
+        //新增origin_url字段，如果没有处理后的图片，那么origin_url、url都是上传的图片url
+        uploadPictureResult.setOriginUrl(cosClientConfig.getHost()+"/"+ uploadPath);
+        //我们需要为url设置我们压缩后的路径了，后面只为用户展示这个url
+        uploadPictureResult.setUrl(cosClientConfig.getHost()+"/"+ compressedObject.getKey());
+        uploadPictureResult.setPicName(FileUtil.mainName(originalFilename));
+        //获取到的是压缩后的图片的大小
+        uploadPictureResult.setPicSize(compressedObject.getSize().longValue());
+        uploadPictureResult.setPicWidth(picWidth);
+        uploadPictureResult.setPicHeight(picHeight);
+        uploadPictureResult.setPicScale(picScale);
+        uploadPictureResult.setPicFormat(compressedObject.getFormat());
+        return uploadPictureResult;
+    }
+
+    /**
+     * 封装图片上传结果返回对象，这个方法是走无压缩图片逻辑
+     * @param imageInfo
+     * @param uploadPath
+     * @param originalFilename
+     * @param file
+     * @return
+     */
+    private UploadPictureResult buildUploadPictureResult(ImageInfo imageInfo, String uploadPath, String originalFilename, File file) {
+        //获取图片宽高并计算宽高比
+        int picWidth = imageInfo.getWidth();
+        int picHeight = imageInfo.getHeight();
+        double picScale = NumberUtil.round(picWidth * 1.0 / picHeight, 2).doubleValue();
+        UploadPictureResult uploadPictureResult = new UploadPictureResult();
+        //新增origin_url字段，如果没有处理后的图片，那么origin_url、url都是上传的图片url
+        uploadPictureResult.setOriginUrl(cosClientConfig.getHost()+"/"+ uploadPath);
+        uploadPictureResult.setUrl(cosClientConfig.getHost()+"/"+ uploadPath);
+        uploadPictureResult.setPicName(FileUtil.mainName(originalFilename));
+        uploadPictureResult.setPicSize(FileUtil.size(file));
+        uploadPictureResult.setPicWidth(picWidth);
+        uploadPictureResult.setPicHeight(picHeight);
+        uploadPictureResult.setPicScale(picScale);
+        uploadPictureResult.setPicFormat(imageInfo.getFormat());
+        return uploadPictureResult;
     }
 
     /**

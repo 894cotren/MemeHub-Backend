@@ -6,6 +6,7 @@
 
     <resultMap id="BaseResultMap" type="com.voracityrat.memehubbackend.model.entity.Picture">
             <id property="id" column="id" />
+            <result property="originUrl" column="origin_url" />
             <result property="picUrl" column="pic_url" />
             <result property="picName" column="pic_name" />
             <result property="introduction" column="introduction" />
@@ -27,7 +28,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,pic_url,pic_name,introduction,category,tags,
+        id,origin_url,pic_url,pic_name,introduction,category,tags,
         pic_size,pic_width,pic_height,pic_scale,pic_format,
         review_status,review_message,reviewer_id,review_time,user_id,
         create_time,update_time,is_delete
