@@ -238,7 +238,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
-    public boolean updateUser(UserUpdateRequest userUpdateRequest) {
+    public boolean updateUser(UserUpdateRequest userUpdateRequest, User loginUser) {
         /**
          * 入参：UserUpdateRequest
          * 1.校验参数
@@ -262,6 +262,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         //校验账户长度大于等于4小于等于20
         if (userAccount.length() < 4 || userAccount.length() > 20) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户长度应为4-20之间");
+        }
+        //收藏上限和用户角色字段、用户唯一账户名字段，必须要管理员才可以更新
+        if (!UserConstant.ADMIN.equals(loginUser.getUserRole())){
+            //如果不是管理员，不管如何直接置空上面三个字段，不允许更新收藏上限以及用户角色字段
+            userUpdateRequest.setUserAccount(null);
+            userUpdateRequest.setFavoriteLimit(null);
+            userUpdateRequest.setUserRole(null);
         }
         //转换对象
         User user = new User();

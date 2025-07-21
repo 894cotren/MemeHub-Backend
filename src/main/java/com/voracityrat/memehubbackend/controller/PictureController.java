@@ -1,6 +1,7 @@
 package com.voracityrat.memehubbackend.controller;
 
 
+import cn.hutool.core.util.ObjUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -18,6 +19,7 @@ import com.voracityrat.memehubbackend.model.entity.User;
 import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureTagCategoryVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
+import com.voracityrat.memehubbackend.model.vo.user.LoginUserVO;
 import com.voracityrat.memehubbackend.service.PictureService;
 import com.voracityrat.memehubbackend.service.UserPictureService;
 import com.voracityrat.memehubbackend.service.UserService;
@@ -59,6 +61,7 @@ public class PictureController {
         PictureVO pictureVO = pictureService.uploadPicture(pictureUploadRequest, multipartFile, loginUser);
         return ResultUtil.success(pictureVO);
     }
+
 
     /**
      * 通用的图片更新   更新图片的只能是用户自己或者是管理员，用户更新需要再次审核
@@ -127,7 +130,7 @@ public class PictureController {
 
     /**
      * 用户分页查询，返回高度脱敏图片信息
-     *
+     *  这里尽量整通用
      * @param pictureVOPagesRequest
      * @return
      */
@@ -137,7 +140,23 @@ public class PictureController {
         ThrowUtil.throwIf(pictureVOPagesRequest == null, ErrorCode.PARAMS_ERROR);
         int pageSize = pictureVOPagesRequest.getPageSize();
         ThrowUtil.throwIf(pageSize > 20, ErrorCode.OPERATION_ERROR, "用户不允许查询每页20条以上");
-        Long loginUserId = userService.getLoginUser(request).getId();
+        //此处应该修改为用户可以未登录的，未登录传入null即可，里面已经做好为空的处理了。 所以做了如下手动处理
+//        Long loginUserId = userService.getLoginUser(request).getId();  这段代码如果没有登录用户会报错，我们手动处理下吧。
+        //从请求体里获取到用户对象并转换
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATUS);
+        LoginUserVO loginUser = (LoginUserVO) userObj;
+        Long loginUserId = null;
+        //如果不为空去查询
+        if (ObjUtil.isNotEmpty(loginUser)){
+            //查询用户信息，拿到最新的用户对象  ，防止缓存跟数据不一致。
+            User laestUser = userService.getById(loginUser.getId());
+            //判断是否为空
+            if (laestUser==null){
+                //为空抛出异常  （可能被管理员封禁了）
+                throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+            }
+            loginUserId=laestUser.getId();
+        }
         Page<PicturePagesVO> pages = pictureService.getPictureVOPages(pictureVOPagesRequest,loginUserId);
         return ResultUtil.success(pages);
     }
@@ -249,4 +268,22 @@ public class PictureController {
         pictureService.doPictureReview(pictureReviewRequest, loginUser);
         return ResultUtil.success(true);
     }
+
+
+    /**
+     * 用户头像上传，返回上传后的头像url
+     * @param multipartFile
+     * @param request
+     * @return
+     */
+    @PostMapping("/uploadUserAvatar")
+    public BaseResponse<String> uploadUserAvatar(@RequestPart("file")MultipartFile multipartFile,
+                                                 HttpServletRequest request){
+        //获取当前用户
+        User loginUser = userService.getLoginUser(request);
+        //图片上传
+        String userAvatar = pictureService.uploadUserAvatar(multipartFile, loginUser);
+        return ResultUtil.success(userAvatar);
+    }
+
 }

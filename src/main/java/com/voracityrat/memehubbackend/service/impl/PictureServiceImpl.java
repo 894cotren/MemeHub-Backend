@@ -218,13 +218,13 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             pageNum = 1;
         }
         if (pageSize < 1) {
-            pageSize = 10;
+            pageSize = 12;
         }
         //限制分页大小，防止爬虫。
-        ThrowUtil.throwIf(pageSize > 20, ErrorCode.OPERATION_ERROR, "普通用户不能使用每页20条以上分页");
+        ThrowUtil.throwIf(pageSize > 50, ErrorCode.OPERATION_ERROR, "普通用户不能使用每页50条以上分页");
         //进行分页搜索
         //拼接分页查询条件
-        QueryWrapper<Picture> queryWrapper = getPictureVOPagesQueryWrapper(pictureVOPagesRequest);
+        QueryWrapper<Picture> queryWrapper = getPictureVOPagesQueryWrapper(pictureVOPagesRequest,loginUserId);
         Page<Picture> picturePage = this.page(new Page<>(pageNum, pageSize), queryWrapper);
         long total = picturePage.getTotal();
         //进行数据脱敏
@@ -270,15 +270,20 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         Map<Long, List<User>> collect = users.stream().collect(Collectors.groupingBy(User::getId));
         //新增收藏功能，新增isFavorite字段，如果是用户收藏的话这个字段需要设定为ture (字段默认为false)
         //查询当前用户在当前这分页图片里收藏了哪些
-        Set<Long> favoritePicIds= userPictureService.favoriteInPictureIds(picIds,loginUserId);
+        Set<Long> favoritePicIds= new HashSet<>();
+        //如果用户登录了，才进行用户收藏过的图片的查询
+        if (ObjUtil.isNotEmpty(loginUserId)){
+            favoritePicIds= userPictureService.favoriteInPictureIds(picIds,loginUserId);
+        }
         //遍历picturePagesVOList 去为每个对象设置用户信息,脱敏后的用户信息
+        Set<Long> finalFavoritePicIds = favoritePicIds;  //好像下面要用的集合不让有改东，必须要整个中间的才行
         picturePagesVOList.forEach(picturePagesVO -> {
             Long userId = picturePagesVO.getUserId();
             if (collect.containsKey(userId)) {
                 picturePagesVO.setUserName(collect.get(userId).get(0).getUserName());
             }
             //如果当前图片id在用户喜欢的图片id里，标记一下
-            if (favoritePicIds.contains(picturePagesVO.getId())){
+            if (finalFavoritePicIds.contains(picturePagesVO.getId())){
                 picturePagesVO.setIsFavorite(true);
             }
         });
@@ -317,13 +322,15 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     }
 
 
+
     /**
      * 获取用户分页查询拼接后的QueryWrapper
      *
      * @param pictureVOPagesRequest
+     * @param loginUserId
      * @return
      */
-    private QueryWrapper<Picture> getPictureVOPagesQueryWrapper(PictureVOPagesRequest pictureVOPagesRequest) {
+    private QueryWrapper<Picture> getPictureVOPagesQueryWrapper(PictureVOPagesRequest pictureVOPagesRequest, Long loginUserId) {
         QueryWrapper<Picture> queryWrapper = new QueryWrapper<>();
         if (pictureVOPagesRequest == null) {
             return queryWrapper;
@@ -334,6 +341,12 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         String category = pictureVOPagesRequest.getCategory();
         List<String> tags = pictureVOPagesRequest.getTags();
         String searchText = pictureVOPagesRequest.getSearchText();
+        String sortField = pictureVOPagesRequest.getSortField(); //排序字段 ，需要与数据库字段一一对应！并非驼峰
+        String sortOrder = pictureVOPagesRequest.getSortOrder();  //排序方式。
+        Date startTime = pictureVOPagesRequest.getStartTime();
+        Date endTime = pictureVOPagesRequest.getEndTime();
+        Long userId = pictureVOPagesRequest.getUserId();  //必须要验证是否是当前登录用户，是才允许
+
         // 从多字段中搜索
         if (StrUtil.isNotBlank(searchText)) {
             // 需要拼接查询条件
@@ -354,8 +367,18 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         }
         // 用户只能查询审核通过的图片
         queryWrapper.lambda().eq(Picture::getReviewStatus, PictureReviewEnum.PASS.getValue());
-        //排序 ,时间倒叙排，这里写死了。
-        queryWrapper.orderBy(true,false,"create_time");
+        //如果传入了用户id,并且与当前登录用户id相等，那么就是查询用户自己上传的图片，如果不是就不报错了，不管它
+        //注意当前用户可能未登录的。
+        if (ObjUtil.isNotEmpty(userId) && userId.equals(loginUserId)){
+            queryWrapper.lambda().eq(Picture::getUserId,userId);
+        }
+        //时间参数
+        if (ObjUtil.isAllNotEmpty(startTime,endTime)){
+            queryWrapper.lambda().gt(Picture::getCreateTime,startTime);
+            queryWrapper.lambda().lt(Picture::getCreateTime,endTime);
+        }
+        //排序 ,按照前端传入字段排
+        queryWrapper.orderBy(ObjUtil.isAllNotEmpty(sortOrder,sortField),"ascend".equals(sortOrder),sortField);
         return queryWrapper;
     }
 
@@ -455,6 +478,28 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
                 throw new BusinessException(ErrorCode.OPERATION_ERROR,"图片简介，不能超过16位");
             }
         }
+    }
+
+
+    /**
+     * 用户上传头像图片，返回已上传的头像图片URL给前端，方便前端到时候一并提交表单保存到数据库
+     * @param multipartFile
+     * @param loginUser
+     * @return
+     */
+    @Override
+    public String uploadUserAvatar(MultipartFile multipartFile, User loginUser) {
+
+        // 1. 参数校验、权限校验
+        //当前登陆用户不能为空
+        ThrowUtil.throwIf(loginUser==null, ErrorCode.NO_AUTH_ERROR);
+        //2.上传cos，获取到图片基本信息
+        //配置用户上传前缀,公共的放在public路径下，并且按照用户id划分保存的目录
+        String uploadPathPrefix=String.format("public/%s",loginUser.getId());
+        UploadPictureResult uploadPictureResult = pictureCosUtil.pictureUpload(multipartFile, uploadPathPrefix);
+        // 3. 把图片基本信息封装，保存到数据库，获取到图片的id
+        String userAvator = uploadPictureResult.getUrl();
+        return userAvator;
     }
 }
 

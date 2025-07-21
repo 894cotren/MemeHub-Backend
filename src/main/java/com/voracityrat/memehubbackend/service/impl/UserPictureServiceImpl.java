@@ -1,22 +1,28 @@
 package com.voracityrat.memehubbackend.service.impl;
 
+import cn.hutool.core.util.ObjUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.voracityrat.memehubbackend.constant.UserConstant;
 import com.voracityrat.memehubbackend.exception.BusinessException;
 import com.voracityrat.memehubbackend.exception.ErrorCode;
 import com.voracityrat.memehubbackend.exception.ThrowUtil;
 import com.voracityrat.memehubbackend.model.dto.picture.FavoritePicturePagesRequest;
 import com.voracityrat.memehubbackend.model.dto.picture.FavoritePictureRequest;
 import com.voracityrat.memehubbackend.model.entity.Picture;
+import com.voracityrat.memehubbackend.model.entity.User;
 import com.voracityrat.memehubbackend.model.entity.UserPicture;
 import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
 import com.voracityrat.memehubbackend.service.PictureService;
 import com.voracityrat.memehubbackend.service.UserPictureService;
 import com.voracityrat.memehubbackend.mapper.UserPictureMapper;
+import com.voracityrat.memehubbackend.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.HashSet;
@@ -39,6 +45,10 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
     @Resource
     private PictureService pictureService;
 
+    @Resource
+    private UserService userService;
+
+
     /**
      * 用户收藏图片
      *
@@ -46,6 +56,7 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
      * @return
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean userFavoritePicture(FavoritePictureRequest favoritePictureRequest) {
         /**
          * 1. 参数校验
@@ -58,22 +69,57 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
         if (userId == null || picId == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        //检查是否已收藏
-        QueryWrapper<UserPicture> queryWrapper = new QueryWrapper<>();
-        queryWrapper.lambda().eq(UserPicture::getPicId, picId);
-        queryWrapper.lambda().eq(UserPicture::getUserId, userId);
-        long count = this.count(queryWrapper);
-        ThrowUtil.throwIf(count > 0L, ErrorCode.OPERATION_ERROR, "已收藏");
-        //TODO 这里应该添加一个收藏计数的，我们的收藏上限是200张。
-        //插入参数组装
-        UserPicture userPicture = new UserPicture();
-        BeanUtils.copyProperties(favoritePictureRequest, userPicture);
-        boolean result = this.save(userPicture);
-        ThrowUtil.throwIf(!result, ErrorCode.SYSTEM_ERROR, "收藏图片异常，收藏失败");
-        return result;
+        //锁当前用户id
+        Object lock = UserConstant.LOCK_MAP.computeIfAbsent(userId, key -> new Object());
+        synchronized (lock){
+            try {
+                //检查是否已收藏
+                QueryWrapper<UserPicture> queryWrapper = new QueryWrapper<>();
+                queryWrapper.lambda().eq(UserPicture::getPicId, picId);
+                queryWrapper.lambda().eq(UserPicture::getUserId, userId);
+                long count = this.count(queryWrapper);
+                ThrowUtil.throwIf(count > 0L, ErrorCode.OPERATION_ERROR, "已收藏");
+                //新增 添加一个收藏计数，我们收藏图片是有上限得
+                // 数据库操作
+                //检查下当前用户的收藏数是否上限了
+                User user = userService.getById(userId);
+                if (ObjUtil.isEmpty(user)){
+                    throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"当前用户不存在");
+                }
+                Integer favoriteCount = user.getFavoriteCount();
+                Integer favoriteLimit = user.getFavoriteLimit();
+                if (favoriteCount ==null || favoriteLimit==null){
+                    throw  new BusinessException(ErrorCode.PARAMS_ERROR,"收藏数异常");
+                }
+                if (favoriteCount>= favoriteLimit){
+                    throw  new BusinessException(ErrorCode.OPERATION_ERROR,"收藏数达到上限，请call管理员扩容");
+                }
+                //参数组装 并插入
+                UserPicture userPicture = new UserPicture();
+                BeanUtils.copyProperties(favoritePictureRequest, userPicture);
+                boolean result = this.save(userPicture);
+                ThrowUtil.throwIf(!result, ErrorCode.SYSTEM_ERROR, "收藏图片异常，收藏失败");
+                //更新已收藏数
+                boolean update = userService.update().lambda()
+                        .set(User::getFavoriteCount, favoriteCount + 1)
+                        .eq(User::getId, userId)
+                        .update();
+                ThrowUtil.throwIf(!update,new BusinessException(ErrorCode.OPERATION_ERROR,"收藏失败"));
+            } finally {
+                // 防止内存泄漏
+                UserConstant.LOCK_MAP.remove(userId);
+            }
+        }
+        return true;
     }
 
+    /**
+     * 取消收藏图片
+     * @param favoritePictureRequest
+     * @return
+     */
     @Override
+    @Transactional
     public boolean userUnfavoritePicture(FavoritePictureRequest favoritePictureRequest) {
 
         /**
@@ -89,13 +135,46 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
         if (userId == null || picId == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        //数据删除
-        QueryWrapper<UserPicture> queryWrapper = new QueryWrapper<>();
-        queryWrapper.lambda().eq(UserPicture::getPicId, picId);
-        queryWrapper.lambda().eq(UserPicture::getUserId, userId);
-        boolean result = this.remove(queryWrapper);
-        ThrowUtil.throwIf(!result, ErrorCode.OPERATION_ERROR, "取消收藏失败！");
-        return result;
+        //锁当前用户id
+        Object lock = UserConstant.LOCK_MAP.computeIfAbsent(userId, key -> new Object());
+        synchronized (lock){
+            try {
+                //检查库中是否有该图片
+                //检查是否已收藏
+                QueryWrapper<UserPicture> queryWrapper = new QueryWrapper<>();
+                queryWrapper.lambda().eq(UserPicture::getPicId, picId);
+                queryWrapper.lambda().eq(UserPicture::getUserId, userId);
+                long count = this.count(queryWrapper);
+                ThrowUtil.throwIf(count <= 0L, ErrorCode.OPERATION_ERROR, "未收藏该图片，取消收藏失败！");
+                //取消收藏操作  删除数据
+                queryWrapper = new QueryWrapper<>();
+                queryWrapper.lambda().eq(UserPicture::getPicId, picId);
+                queryWrapper.lambda().eq(UserPicture::getUserId, userId);
+                boolean result = this.remove(queryWrapper);
+                ThrowUtil.throwIf(!result, ErrorCode.OPERATION_ERROR, "取消收藏失败！");
+                //收藏数更新，取消收藏后应该+1
+                User user = userService.getById(userId);
+                if (ObjUtil.isEmpty(user)){
+                    throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"当前用户不存在");
+                }
+                Integer favoriteCount = user.getFavoriteCount();
+                Integer favoriteLimit = user.getFavoriteLimit();
+                if (favoriteCount ==null || favoriteLimit==null){
+                    throw  new BusinessException(ErrorCode.PARAMS_ERROR,"收藏数异常");
+                }
+                //更新已收藏数
+                boolean update = userService.update().lambda()
+                        .set(User::getFavoriteCount, favoriteCount - 1)
+                        .eq(User::getId, userId)
+                        .gt(User::getFavoriteCount, 0)
+                        .update();
+                ThrowUtil.throwIf(!update,new BusinessException(ErrorCode.OPERATION_ERROR,"取消收藏失败"));
+            } finally {
+                // 防止内存泄漏
+                UserConstant.LOCK_MAP.remove(userId);
+            }
+        }
+        return true;
     }
 
     @Override
@@ -118,7 +197,7 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
         pageSize = pageSize < 1 ? 12L : pageSize;
 
         //分页查询
-        Page<Picture> favoritePicturePages = userPictureMapper.getFavoritePicturePages(new Page<>(pageNum, pageSize), userId);
+        Page<Picture> favoritePicturePages = userPictureMapper.getFavoritePicturePages(new Page<>(pageNum, pageSize), favoritePicturePagesRequest);
         ThrowUtil.throwIf(favoritePicturePages == null, ErrorCode.SYSTEM_ERROR, "分页查询失败");
         //数据脱敏
         List<PicturePagesVO> picturePagesVOList = pictureService.getPicturePagesVOList(favoritePicturePages.getRecords(), favoritePicturePagesRequest.getUserId());

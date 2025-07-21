@@ -37,6 +37,22 @@ public class PictureVOPagesRequest extends PageRequest {
      */
     private List<String> tags;
 
+    /**
+     * 创建开始时间
+     */
+    private Date startTime;
+
+    /**
+     * 创建结束时间
+     */
+    private Date endTime;
+
+
+    /**
+     * 是否有用户id，如果有 ，并对比当前登录用户是否一致，是的话查寻当前用户的上传图片
+     */
+    private Long userId;
+
 
     /**
      * 综合搜索词  可以模糊搜索名称、简介、标签

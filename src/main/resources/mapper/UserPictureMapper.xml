@@ -20,8 +20,35 @@
     <select id="getFavoritePicturePages" resultType="com.voracityrat.memehubbackend.model.entity.Picture">
         SELECT p.id,p.pic_url,p.tags,p.pic_name,p.category,p.introduction,p.user_id FROM user_picture up
             LEFT JOIN picture p on up.pic_id = p.id
-                 where  up.user_id=#{userId} and p.review_status =1 and p.is_delete = 0
-                order by up.create_time desc
+                 where  up.user_id=#{pagesRequest.userId} and p.review_status =1 and p.is_delete = 0
+        <if test="pagesRequest.sortField!=null and pagesRequest.sortField!=''">
+        order by
+            <choose>
+                <!-- 白名单校验排序字段  不这样搞order by 后面不能用#{}否则传过去的是字符串不是列名，${}又有注入风险。难绷-->
+                <when test="pagesRequest.sortField == 'create_time'">
+                    up.create_time
+                </when>
+                <when test="pagesRequest.sortField == 'id'">
+                    p.id
+                </when>
+                <!-- 默认排序字段 -->
+                <otherwise>
+                    p.create_time
+                </otherwise>
+            </choose>
+            <choose>
+                <!-- 升序 -->
+                <when test="pagesRequest.sortOrder == 'ascend'">
+                    ASC
+                </when>
+                <!-- 降序 -->
+                <when test="pagesRequest.sortOrder == 'descend'">
+                    DESC
+                </when>
+                <!-- 默认降序 -->
+                <otherwise>DESC</otherwise>
+            </choose>
+        </if>
     </select>
     <select id="favoriteInPictureIds" resultType="java.lang.Long">
         select up.pic_id from user_picture up

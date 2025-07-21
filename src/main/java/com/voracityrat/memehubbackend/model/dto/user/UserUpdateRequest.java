@@ -3,7 +3,6 @@ package com.voracityrat.memehubbackend.model.dto.user;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.Date;
 
 /**
  * 用户更新request
@@ -49,9 +48,9 @@ public class UserUpdateRequest implements Serializable {
     private String userRole;
 
     /**
-     * 收藏数
+     * 可收藏上限
      */
-    private Integer favoriteCount;
+    private Integer favoriteLimit;
 
 
 

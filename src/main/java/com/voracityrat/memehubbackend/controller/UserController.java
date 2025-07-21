@@ -1,6 +1,7 @@
 package com.voracityrat.memehubbackend.controller;
 
 
+import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.voracityrat.memehubbackend.annotaion.AuthCheck;
 import com.voracityrat.memehubbackend.common.BaseResponse;
@@ -8,6 +9,7 @@ import com.voracityrat.memehubbackend.common.ResultUtil;
 import com.voracityrat.memehubbackend.constant.UserConstant;
 import com.voracityrat.memehubbackend.exception.BusinessException;
 import com.voracityrat.memehubbackend.exception.ErrorCode;
+import com.voracityrat.memehubbackend.exception.ThrowUtil;
 import com.voracityrat.memehubbackend.model.dto.DeleteRequest;
 import com.voracityrat.memehubbackend.model.dto.user.*;
 import com.voracityrat.memehubbackend.model.entity.User;
@@ -127,18 +129,26 @@ public class UserController {
     }
 
     /**
-     * 用户更新
+     * 用户更新   （已经做了权限校验了，不允许用户更新用户唯一账号名、用户角色，用户收藏上限）
      */
     @PostMapping("/update")
-    @AuthCheck(mustRole = UserConstant.ADMIN)
-    public BaseResponse<Boolean> userUpdate(@RequestBody UserUpdateRequest userUpdateRequest) {
+    public BaseResponse<Boolean> userUpdate(@RequestBody UserUpdateRequest userUpdateRequest,
+                                            HttpServletRequest request) {
 
         //校验非空
         if (ObjectUtils.isEmpty(userUpdateRequest)) {
             return ResultUtil.failed(ErrorCode.PARAMS_ERROR);
         }
+        //获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtil.throwIf(ObjUtil.isEmpty(loginUser),ErrorCode.NOT_LOGIN_ERROR,"当前未登录");
+        //权限校验，只有用户更改的自己的或者自己是管理员才可以更改
+        if (!loginUser.getId().equals(userUpdateRequest.getId()) && !UserConstant.ADMIN.equals(loginUser.getUserRole()) )
+        {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
         //进行更新
-        boolean result = userService.updateUser(userUpdateRequest);
+        boolean result = userService.updateUser(userUpdateRequest,loginUser);
         return ResultUtil.success(result);
     }
 

@@ -80,9 +80,10 @@ public interface UserService extends IService<User> {
      * 更新用户
      *
      * @param userUpdateRequest
+     * @param
      * @return
      */
-    boolean updateUser(UserUpdateRequest userUpdateRequest);
+    boolean updateUser(UserUpdateRequest userUpdateRequest, User loginUser);
 
     /**
      * 用户分页查询

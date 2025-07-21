@@ -77,4 +77,11 @@ public interface PictureService extends IService<Picture> {
      */
     void doPictureReview(PictureReviewRequest pictureReviewRequest, User loginUser);
 
+    /**
+     * 用户头像上传
+     * @param multipartFile
+     * @param loginUser
+     * @return
+     */
+    String uploadUserAvatar(MultipartFile multipartFile, User loginUser);
 }
