@@ -74,7 +74,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         registerUser.setUserAccount(userAccount);
         registerUser.setUserPassword(encryptPassword);
         registerUser.setUserRole(UserRoleEnum.COMMON_USER.getValue());
-        registerUser.setUserName("新用户");
+        registerUser.setUserName(userAccount);   //我们默认username就是账户吧
         //TODO 可以给用户设置默认头像
         registerUser.setUserAvatar("");
         boolean saveResult = this.save(registerUser);
@@ -255,13 +255,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         }
         String userAccount = userUpdateRequest.getUserAccount();
         //校验用户账号合规
-        //校验参数不为空
-        if (StrUtil.hasBlank(userAccount)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数不能为空");
-        }
-        //校验账户长度大于等于4小于等于20
-        if (userAccount.length() < 4 || userAccount.length() > 20) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户长度应为4-20之间");
+        //不为空校验参数
+        if (!StrUtil.hasBlank(userAccount)) {
+            //校验账户长度大于等于4小于等于20
+            if (userAccount.length() < 4 || userAccount.length() > 20) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "账户长度应为4-20之间");
+            }
         }
         //收藏上限和用户角色字段、用户唯一账户名字段，必须要管理员才可以更新
         if (!UserConstant.ADMIN.equals(loginUser.getUserRole())){

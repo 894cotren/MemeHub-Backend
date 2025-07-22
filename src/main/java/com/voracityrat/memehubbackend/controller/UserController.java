@@ -170,7 +170,7 @@ public class UserController {
 
 
     /**
-     * 根据用户ID查询用户
+     * 根据用户ID查询用户（管理员权限）
      */
     @GetMapping("/getUserById")
     @AuthCheck(mustRole = UserConstant.ADMIN)
@@ -188,7 +188,16 @@ public class UserController {
         return ResultUtil.success(userService.getUserVo(user));
     }
 
-
+    /**
+     * 获取当前用户信息（用于编辑）
+     */
+    @GetMapping("/getCurrentUser")
+    public BaseResponse<UserVO> getCurrentUser(HttpServletRequest request) {
+        //获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        ThrowUtil.throwIf(ObjUtil.isEmpty(loginUser),ErrorCode.NOT_LOGIN_ERROR,"当前未登录");
+        return ResultUtil.success(userService.getUserVo(loginUser));
+    }
 
 
 }
