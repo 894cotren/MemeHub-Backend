@@ -102,7 +102,6 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.voracityrat.memehubbackend.MemeHubBackendApplication</mainClass>
-                    <skip>true</skip>
                 </configuration>
                 <executions>
                     <execution>

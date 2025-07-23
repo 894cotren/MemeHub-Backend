@@ -6,15 +6,17 @@ server:
       #前端cookie 15天过期   匹配 session15天过期。 实现登录15天过期
       cookie:
         max-age: 1296000
+        # 设置Cookie域名，确保在域名下正确传递
+        domain: memehub.icu
+        # 设置Cookie路径
+        path: /
+        # 设置Cookie安全属性（HTTP环境下设为false）
+        secure: false
+        http-only: true
+        same-site: lax
 spring:
   application:
     name: MemeHub-Backend
-  #mysql数据库配置信息
-  datasource:
-    url: jdbc:mysql://192.168.83.123:3306/memehub?serverTimezone=Asia/Shanghai
-    username: root
-    password: 23321212
-    driver-class-name: com.mysql.cj.jdbc.Driver
   profiles:
     active: local
   #文件上传大小限制设置为10mb（默认1mb），这里得是servlet得限制，我们代码里面也是配置得10mb
@@ -36,14 +38,4 @@ mybatis-plus:
       logic-delete-value: 1 # 逻辑已删除值。可选，默认值为 1
       logic-not-delete-value: 0 # 逻辑未删除值。可选，默认值为 0
 
-#knife4j配置
-knife4j:
-  enable: true
-  openapi:
-    title: Memehub-Backend接口文档
-    version: 1.0
-    group:
-      default:
-        api-rule: package
-        api-rule-resources:
-          - com.voracityrat.memehubbackend.controller
+

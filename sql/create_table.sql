@@ -14,7 +14,7 @@ create table if not exists user
     user_email      varchar(256)                           null comment '用户邮箱',
     user_role       varchar(256) default 'user'            not null comment '用户角色：user/admin 其他权益待定',
     favorite_count  int          default 0                 not null comment '收藏数',
-    favorite_limit int          default 200      not null comment '可收藏上限',
+    favorite_limit int          default 500      not null comment '可收藏上限',
     create_time     datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
     update_time     datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
     is_delete       tinyint      default 0                 not null comment '是否删除',

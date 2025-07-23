@@ -13,8 +13,12 @@ public class CorsConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 // 允许发送 Cookie
                 .allowCredentials(true)
-                // 放行哪些域名（必须用 patterns，否则 * 会和 allowCredentials 冲突）
-                .allowedOriginPatterns("*")
+                // 明确指定允许的域名，避免使用通配符
+                .allowedOriginPatterns(
+                    "http://localhost:*",
+                    "http://memehub.icu",
+                    "http://www.memehub.icu"
+                )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .exposedHeaders("*");
