@@ -16,6 +16,7 @@ import com.voracityrat.memehubbackend.model.dto.DeleteRequest;
 import com.voracityrat.memehubbackend.model.dto.picture.*;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.User;
+import com.voracityrat.memehubbackend.model.vo.picture.BatchPictureUploadVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureTagCategoryVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
@@ -30,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -61,6 +63,36 @@ public class PictureController {
         PictureVO pictureVO = pictureService.uploadPicture(pictureUploadRequest, multipartFile, loginUser);
         return ResultUtil.success(pictureVO);
     }
+
+    @PostMapping("/batchUpload")
+    @AuthCheck(mustRole = UserConstant.ADMIN)
+    public BaseResponse<BatchPictureUploadVO> batchUploadPicture(@RequestPart("file") MultipartFile file,
+                                                 HttpServletRequest request){
+        //获取当前用户
+        User loginUser = userService.getLoginUser(request);
+
+        // 验证文件
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请选择要上传的图片");
+        }
+
+        // 创建默认的上传请求
+        PictureUploadRequest pictureUploadRequest = new PictureUploadRequest();
+
+        // 复用现有的单文件上传方法
+        PictureVO pictureVO = pictureService.uploadPicture(pictureUploadRequest, file, loginUser);
+
+        //注意这里是前端去处理失败结果的，我们这里单个上传错误抛异常会又全局返回的，让前端处理。
+
+        // 组装批量上传结果
+        BatchPictureUploadVO result = new BatchPictureUploadVO();
+        result.setFailedList(new ArrayList<>());
+        result.setTotalCount(1);
+        result.setFailedCount(0);
+
+        return ResultUtil.success(result);
+    }
+
 
 
     /**
@@ -285,5 +317,7 @@ public class PictureController {
         String userAvatar = pictureService.uploadUserAvatar(multipartFile, loginUser);
         return ResultUtil.success(userAvatar);
     }
+
+
 
 }
