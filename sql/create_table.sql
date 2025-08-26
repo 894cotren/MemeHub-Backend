@@ -42,6 +42,7 @@ create table if not exists picture
     review_message varchar(512)                     null comment '审核备注',
     reviewer_id  bigint                             null comment '审核人 ID',
     review_time  datetime                           null comment '审核时间',
+    space_id     bigint                             null comment '空间 id（为空表示公共空间）',
     user_id      bigint                             not null comment '创建用户 id',
     create_time  datetime default CURRENT_TIMESTAMP not null comment '创建时间',
     update_time  datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
@@ -50,7 +51,8 @@ create table if not exists picture
     INDEX idx_category (category),
     INDEX idx_tags (tags),
     INDEX idx_user_id (user_id),
-    INDEX idx_reviewStatus (review_status)
+    INDEX idx_reviewStatus (review_status),
+    INDEX idx_space_id (space_id)
 ) comment '图片表' collate = utf8mb4_unicode_ci;
 
 
@@ -63,4 +65,35 @@ create table if not exists user_picture
     create_time datetime default CURRENT_TIMESTAMP not null comment '创建时间',
     INDEX idx_user_id (user_id, pic_id)
 ) comment '用户收藏图片-收藏表' collate = utf8mb4_unicode_ci;
+
+
+
+-- 空间表
+CREATE TABLE IF NOT EXISTS space
+(
+    id           BIGINT AUTO_INCREMENT COMMENT 'id' PRIMARY KEY,
+    space_name   VARCHAR(128)                       NULL COMMENT '空间名称',
+    space_level  INT      DEFAULT 0                 NULL COMMENT '空间级别：0-普通版 1-专业版 2-旗舰版',
+    max_size     BIGINT   DEFAULT 0                 NULL COMMENT '空间图片的最大总大小',
+    max_count    BIGINT   DEFAULT 0                 NULL COMMENT '空间图片的最大数量',
+    total_size   BIGINT   DEFAULT 0                 NULL COMMENT '当前空间下图片的总大小',
+    total_count  BIGINT   DEFAULT 0                 NULL COMMENT '当前空间下的图片数量',
+    user_id      BIGINT                             NOT NULL COMMENT '创建用户 id',
+    create_time  DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    edit_time    DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '编辑时间',
+    update_time  DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    is_delete    TINYINT  DEFAULT 0                 NOT NULL COMMENT '是否删除',
+    -- 索引设计
+    INDEX idx_user_id (user_id),        -- 提升基于用户的查询效率
+    INDEX idx_space_name (space_name),  -- 提升基于空间名称的查询效率
+    INDEX idx_space_level (space_level) -- 提升按空间级别查询的效率
+) COMMENT '空间' COLLATE = utf8mb4_unicode_ci;
+
+
+# -- 添加新列
+# ALTER TABLE picture
+#     ADD COLUMN space_id  bigint  null comment '空间 id（为空表示公共空间）';
+#
+# -- 创建索引
+# CREATE INDEX idx_space_id ON picture (space_id);
 

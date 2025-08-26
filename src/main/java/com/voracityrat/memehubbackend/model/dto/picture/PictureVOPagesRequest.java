@@ -53,6 +53,15 @@ public class PictureVOPagesRequest extends PageRequest {
      */
     private Long userId;
 
+    /**
+     * 空间id，如果传入表示在某一空间下查询。我们必须要校验权限。
+     */
+    private Long spaceId;
+
+    /**
+     * 是否只查询spaceId为null的数据。  也就是查询公共图库里的数据。
+     */
+    private boolean nullSpaceId;
 
     /**
      * 综合搜索词  可以模糊搜索名称、简介、标签

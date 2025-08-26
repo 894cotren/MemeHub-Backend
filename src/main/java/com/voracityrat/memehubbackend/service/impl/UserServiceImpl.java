@@ -353,6 +353,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         return userMapper.getUserNameByIds(userIds);
     }
 
+    @Override
+    public Boolean isAdmin(User loginUser) {
+        String userRole = loginUser.getUserRole();
+        UserRoleEnum userRoleEnum = UserRoleEnum.getRoleEnumByValue(userRole);
+        return userRoleEnum != null && UserRoleEnum.ADMIN_USER.equals(userRoleEnum);
+    }
+
     /**
      * 根据传入的userPageListRequest，组装分页查询条件QueryWrapper
      * @param userPageListRequest

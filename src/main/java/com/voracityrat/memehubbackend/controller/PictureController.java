@@ -15,6 +15,7 @@ import com.voracityrat.memehubbackend.exception.ThrowUtil;
 import com.voracityrat.memehubbackend.model.dto.DeleteRequest;
 import com.voracityrat.memehubbackend.model.dto.picture.*;
 import com.voracityrat.memehubbackend.model.entity.Picture;
+import com.voracityrat.memehubbackend.model.entity.Space;
 import com.voracityrat.memehubbackend.model.entity.User;
 import com.voracityrat.memehubbackend.model.vo.picture.BatchPictureUploadVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
@@ -22,10 +23,12 @@ import com.voracityrat.memehubbackend.model.vo.picture.PictureTagCategoryVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
 import com.voracityrat.memehubbackend.model.vo.user.LoginUserVO;
 import com.voracityrat.memehubbackend.service.PictureService;
+import com.voracityrat.memehubbackend.service.SpaceService;
 import com.voracityrat.memehubbackend.service.UserPictureService;
 import com.voracityrat.memehubbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -52,6 +55,13 @@ public class PictureController {
 
     @Resource
     private UserPictureService userPictureService;
+
+    @Resource
+    private SpaceService spaceService;
+
+
+    @Resource
+    private TransactionTemplate transactionTemplate;
 
     @PostMapping("/upload")
     public BaseResponse<PictureVO> uploadPicture(@RequestPart("file")MultipartFile multipartFile,
@@ -131,11 +141,17 @@ public class PictureController {
      * @return
      */
     @GetMapping("/getPictureVOById")
-    public BaseResponse<PictureVO> getPictureVOById(@RequestParam Long id){
+    public BaseResponse<PictureVO> getPictureVOById(@RequestParam Long id,HttpServletRequest request){
         if (id ==null || id<=0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Picture picture = pictureService.getPictureByIdForAdmin(id);
+        //空间权限校验，校验一下这个图片你是否有权限。 只校验非公共图片的，也就是spaceId为非空的。
+        Long spaceId = picture.getSpaceId();
+        if (spaceId!=null){
+            User loginUser = userService.getLoginUser(request);
+            pictureService.checkPictureAuth(loginUser,picture);  //权限不够里面会抛异常的
+        }
         PictureVO pictureVO = new PictureVO();
         BeanUtils.copyProperties(picture,pictureVO);
         if (!StrUtil.isBlank(picture.getTags())){
@@ -189,6 +205,24 @@ public class PictureController {
             }
             loginUserId=laestUser.getId();
         }
+
+        //新增了空间功能。如果没传入空间id，那设置nullspaceId为true然后放行查看公共图库。
+        //如果是私有空间，那么需要校验权限了,我们需要校验当前用户是不是空间创建人，是才可以查看空间图库
+        Long spaceId = pictureVOPagesRequest.getSpaceId();
+        if (spaceId==null){
+            pictureVOPagesRequest.setNullSpaceId(true);
+        }else{
+            User tempLoginUser = userService.getLoginUser(request);
+            Space space = spaceService.getById(spaceId);
+            ThrowUtil.throwIf(space==null,ErrorCode.PARAMS_ERROR,"空间不存在");
+            //如果空间存在，那么需要校验当前登录用户是否是空间的创建人了。
+            if (!tempLoginUser.getId().equals(space.getUserId())){
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"当前用户并非空间管理员,无权限");
+            }
+            //设置为false,去查询空间图库。
+            pictureVOPagesRequest.setNullSpaceId(false);
+        }
+
         Page<PicturePagesVO> pages = pictureService.getPictureVOPages(pictureVOPagesRequest,loginUserId);
         return ResultUtil.success(pages);
     }
@@ -270,15 +304,33 @@ public class PictureController {
      * @return
      */
     @PostMapping("/deletePictureById")
-    @AuthCheck(mustRole = UserConstant.ADMIN)
-    public BaseResponse<Boolean> deletePictureById(@RequestBody DeleteRequest deleteRequest){
+    public BaseResponse<Boolean> deletePictureById(@RequestBody DeleteRequest deleteRequest,HttpServletRequest request){
         if (deleteRequest ==null || deleteRequest.getId() <=0){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        boolean ret = pictureService.removeById(deleteRequest.getId());
-        if (!ret){
-            throw new BusinessException(ErrorCode.OPERATION_ERROR,"删除图片失败");
-        }
+        //权限校验
+        User loginUser = userService.getLoginUser(request);
+        Picture oldPicture = pictureService.getById(deleteRequest.getId());
+        pictureService.checkPictureAuth(loginUser,oldPicture);
+        //开启事务
+        transactionTemplate.execute(status -> {
+            boolean ret = pictureService.removeById(deleteRequest.getId());
+            if (!ret){
+                throw new BusinessException(ErrorCode.OPERATION_ERROR,"删除图片失败");
+            }
+            //如果图片有空间id,那么我们对相应图片的空间进行一个额度更新。  没有就是公共图库的图片嘛。
+            Long spaceId = oldPicture.getSpaceId();
+            if (spaceId!=null){
+                boolean update = spaceService.lambdaUpdate()
+                        .eq(Space::getId, spaceId)
+                        .setSql("total_count = total_count -1")
+                        .setSql("total_size = total_size - " + oldPicture.getPicSize())
+                        .update();
+                ThrowUtil.throwIf(!update,ErrorCode.OPERATION_ERROR,"空间额度更新失败");
+            }
+            return oldPicture; //随便返回并无意义。虽然可以返回到transactionTemplate外面拿到值的。但这里无业务需求
+        });
+
         return ResultUtil.success(true);
     }
 

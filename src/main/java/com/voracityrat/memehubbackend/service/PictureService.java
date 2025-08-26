@@ -84,4 +84,15 @@ public interface PictureService extends IService<Picture> {
      * @return
      */
     String uploadUserAvatar(MultipartFile multipartFile, User loginUser);
+
+    /**
+     * 根据图片和登录用户，判断当前用户是否有权限修改、删除该图片。
+     * 如果是公共图库只有管理员或者创建者才可以
+     * 如果是空间图库，只有创建者才可以
+     * @param loginUser
+     * @param picture
+     */
+    void checkPictureAuth(User loginUser,Picture picture);
+
+
 }

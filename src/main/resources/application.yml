@@ -7,7 +7,7 @@ server:
       cookie:
         max-age: 1296000
         # 设置Cookie域名，确保在域名下正确传递
-        domain: memehub.icu
+#        domain: memehub.icu
         # 设置Cookie路径
         path: /
         # 设置Cookie安全属性（HTTP环境下设为false）

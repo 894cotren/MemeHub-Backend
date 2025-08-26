@@ -108,4 +108,12 @@ public interface UserService extends IService<User> {
      * @return
      */
     List<User> getUserNameByIds(List<Long> userIds);
+
+
+    /**
+     * 根据传入用户判断是否为管理员
+     * @param loginUser
+     * @return
+     */
+    Boolean isAdmin(User loginUser);
 }

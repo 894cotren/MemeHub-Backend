@@ -94,6 +94,12 @@ public class Picture implements Serializable {
      * 审核时间
      */
     private Date reviewTime;
+
+    /**
+     * 空间id
+     */
+    private Long spaceId;
+
     /**
      * 创建用户 id
      */
