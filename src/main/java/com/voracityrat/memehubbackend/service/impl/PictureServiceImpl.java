@@ -19,14 +19,13 @@ import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.Space;
 import com.voracityrat.memehubbackend.model.entity.User;
 import com.voracityrat.memehubbackend.model.enums.PictureReviewEnum;
+import com.voracityrat.memehubbackend.model.enums.SpaceTypeEnum;
 import com.voracityrat.memehubbackend.model.enums.UserRoleEnum;
 import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
-import com.voracityrat.memehubbackend.service.PictureService;
+import com.voracityrat.memehubbackend.service.*;
 import com.voracityrat.memehubbackend.mapper.PictureMapper;
-import com.voracityrat.memehubbackend.service.SpaceService;
-import com.voracityrat.memehubbackend.service.UserPictureService;
-import com.voracityrat.memehubbackend.service.UserService;
+import com.voracityrat.memehubbackend.spaceauthcheck.model.SpaceUserPermissionConstant;
 import com.voracityrat.memehubbackend.utils.PictureCosUtil;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -64,6 +63,9 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
     @Resource
     private TransactionTemplate transactionTemplate;
 
+    @Resource
+    private SpaceUserService spaceUserService;
+
     @Override
     public PictureVO uploadPicture(PictureUploadRequest pictureUploadRequest, MultipartFile multipartFile, User loginUser) {
         /**
@@ -85,9 +87,16 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
             //校验空间id是否有效，是否存在
             Space space = spaceService.getById(spaceId);
             ThrowUtil.throwIf(space==null,ErrorCode.NOT_FOUND_ERROR);
-            //校验是否有权限，当前用户是否有权限进行该空间的图片上传（空间创建者）
-            if(!loginUser.getId().equals(space.getUserId())){
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+            //新增团队空间，当前用户是否有查询图片的权限，（查看团队空间图片只要是团队成员就可以）
+            if(SpaceTypeEnum.TEAM.getValue()== space.getSpaceType()){
+                //团队空间校验，上传图片权限
+                spaceUserService.checkSpaceAuth(spaceId, loginUser.getId(), SpaceUserPermissionConstant.PICTURE_UPLOAD);
+            }else {
+                //个人空间校验,挪动到这边来了。
+                //校验是否有权限，当前用户是否有权限进行该空间的图片上传（空间创建者）
+                if(!loginUser.getId().equals(space.getUserId())){
+                    throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+                }
             }
             //校验额度。  这里额度校验也只是粗略校验，实时性精准性可能没那么高。能用就行。
             if (space.getTotalCount()>=space.getMaxCount()){
@@ -185,9 +194,18 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         } else {
             //普通用户
             picture.setReviewStatus(PictureReviewEnum.REVIEWING.getValue());
+            //普通用户如果传入了spaceId，那么传入空间的图片自动过审。
+            //如果spaceid不为空，那么就是空间上传图片，我们不需要管理员审核，我们这里直接通过审核
+            Long spaceId = picture.getSpaceId();
+            if (spaceId!=null){
+                picture.setReviewStatus(1);
+                picture.setReviewMessage("空间图片自动过审");
+                picture.setReviewTime(new Date());
+            }
         }
     }
 
+    //注意啊，我的二次上传更新图片的方法调用的是这个。
     @Override
     public boolean updatePicture(PictureUpdateRequest pictureUpdateRequest, User loginUser) {
         /**
@@ -202,14 +220,37 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
          */
         Picture picture = new Picture();
         BeanUtils.copyProperties(pictureUpdateRequest,picture);
-        validPicture(picture);
+        this.validPicture(picture);
         //查询验证图片是否存在！
         Picture oldPicture = this.getById(pictureUpdateRequest.getId());
         ThrowUtil.throwIf(oldPicture==null,ErrorCode.NOT_FOUND_ERROR);
         //权限校验，只能图片上传者本人，或者管理员更新
-        if (!loginUser.getId().equals(oldPicture.getUserId()) && !loginUser.getUserRole().equals(UserConstant.ADMIN)){
-            throw new BusinessException(ErrorCode.OPERATION_ERROR,"只能图片上传者或者管理员可以更改图片信息");
+        //新增空间  这里为了避免上传的时候还有空间id，然后填充审核的时候根据空间id进行判断是否审核的。上传后二次更新数据会导致这里又盖回去了。
+        //所以我们在这里加一个逻辑,跟新图片spaceId不变的。
+        if(oldPicture.getSpaceId()!=null){
+            picture.setSpaceId(oldPicture.getSpaceId());
         }
+
+        //权限校验
+        //如果是团队空间，就需要拿到团队空间id，然后跟当前用户id，
+        // 对用户空间表进行一个查询，查询到当前用户在该团队空间所具有的权限，然后我们根据权限进行一个判断。
+        //我们没有提供图片修改给普通用户
+        Long spaceId = picture.getSpaceId();
+        if (spaceId!=null){
+            Space space = spaceService.getById(spaceId);
+            ThrowUtil.throwIf(space==null,ErrorCode.OPERATION_ERROR,"找不到该空间");
+            if(SpaceTypeEnum.TEAM.getValue()== space.getSpaceType()){
+                //团队空间校验
+                spaceUserService.checkSpaceAuth(spaceId, loginUser.getId(),SpaceUserPermissionConstant.PICTURE_EDIT);
+            }
+        }else{
+            //个人空间校验
+            if (!loginUser.getId().equals(oldPicture.getUserId()) && !loginUser.getUserRole().equals(UserConstant.ADMIN)){
+                throw new BusinessException(ErrorCode.OPERATION_ERROR,"只能图片上传者或者管理员可以更改图片信息");
+            }
+        }
+
+
         //进行图片更新
         //如果图片的tags不为空，需要将list转换json过来并复制到将要更新的对象里去
         List<String> tags = pictureUpdateRequest.getTags();
@@ -578,6 +619,7 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
 
     @Override
     public void checkPictureAuth(User loginUser, Picture picture) {
+        //校验图片权限，
         if (picture==null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"图片权限校验---图片为空");
         }

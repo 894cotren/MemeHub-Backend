@@ -12,12 +12,16 @@ import com.voracityrat.memehubbackend.exception.ThrowUtil;
 import com.voracityrat.memehubbackend.model.dto.space.SpaceAddRequest;
 import com.voracityrat.memehubbackend.model.dto.space.SpaceQueryRequest;
 import com.voracityrat.memehubbackend.model.entity.Space;
+import com.voracityrat.memehubbackend.model.entity.SpaceUser;
 import com.voracityrat.memehubbackend.model.entity.User;
 import com.voracityrat.memehubbackend.model.enums.SpaceLevelEnum;
+import com.voracityrat.memehubbackend.model.enums.SpaceRoleEnum;
+import com.voracityrat.memehubbackend.model.enums.SpaceTypeEnum;
 import com.voracityrat.memehubbackend.model.vo.space.SpaceVO;
 import com.voracityrat.memehubbackend.model.vo.user.UserVO;
 import com.voracityrat.memehubbackend.service.SpaceService;
 import com.voracityrat.memehubbackend.mapper.SpaceMapper;
+import com.voracityrat.memehubbackend.service.SpaceUserService;
 import com.voracityrat.memehubbackend.service.UserService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -47,6 +51,9 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     @Resource
     private TransactionTemplate transactionTemplate;
 
+    @Resource
+    private SpaceUserService spaceUserService;
+
     @Override
     public void validSpace(Space space, boolean add) {
         /**
@@ -59,6 +66,11 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         Integer spaceLevel = space.getSpaceLevel();
         //根据空间等级值获取对应的枚举类
         SpaceLevelEnum spaceLevelEnum = SpaceLevelEnum.getEnumByValue(spaceLevel);
+        //获取空间类型
+        Integer spaceType = space.getSpaceType();
+        SpaceTypeEnum spaceTypeEnum = SpaceTypeEnum.getEnumByValue(spaceType);
+
+
         // 要创建
         if (add) {
             if (StrUtil.isBlank(spaceName)) {
@@ -67,6 +79,9 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
             if (spaceLevel == null) {
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "空间级别不能为空");
             }
+            if (spaceType == null){
+                throw new BusinessException(ErrorCode.PARAMS_ERROR, "空间类型不能为空");
+            }
         }
         // 修改数据时，如果要改空间级别
         if (spaceLevel != null && spaceLevelEnum == null) {
@@ -74,6 +89,9 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         }
         if (StrUtil.isNotBlank(spaceName) && spaceName.length() > 30) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "空间名称过长");
+        }
+        if (spaceType!=null && spaceTypeEnum==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "空间类别不存在");
         }
     }
 
@@ -153,11 +171,13 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         Integer spaceLevel = spaceQueryRequest.getSpaceLevel();
         String sortField = spaceQueryRequest.getSortField();
         String sortOrder = spaceQueryRequest.getSortOrder();
+        Integer spaceType = spaceQueryRequest.getSpaceType();
         // 拼接查询条件
         queryWrapper.eq(ObjUtil.isNotEmpty(id), "id", id);
         queryWrapper.eq(ObjUtil.isNotEmpty(userId), "user_id", userId);
         queryWrapper.like(StrUtil.isNotBlank(spaceName), "space_name", spaceName);
         queryWrapper.eq(ObjUtil.isNotEmpty(spaceLevel), "space_level", spaceLevel);
+        queryWrapper.eq(ObjUtil.isNotEmpty(spaceType), "space_type", spaceType);
         // 排序
         queryWrapper.orderBy(StrUtil.isNotEmpty(sortField), sortOrder.equals("ascend"), sortField);
         return queryWrapper;
@@ -177,6 +197,13 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         if (spaceAddRequest.getSpaceLevel() == null) {
             space.setSpaceLevel(SpaceLevelEnum.COMMON.getValue());
         }
+        //为兼顾老代码，我们需要判断下spaceType是否为空，是的话我们设置一个默认值。
+        //虽然我们数据库层面已经做了默认值，但是我们还是要尽量做好代码层面的校验
+        //所以我们这里
+        if (space.getSpaceType()==null){
+            space.setSpaceType(SpaceTypeEnum.PRIVATE.getValue());
+        }
+
         // 填充数据
         this.fillSpaceBySpaceLevel(space);
         // 数据校验
@@ -193,6 +220,7 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
         //String s2 = new String("hello"); // 在堆中创建新对象
         //字符串常量池中的String对象具备普通Java对象的所有特性。而且具有唯一性。
         //下面这个锁是在常量池中，为了保证是唯一对象嘛。
+        //2025年9月1日新增，用户也只能创建一个团队空间。
         String userIdlock = String.valueOf(userId).intern();
         //TODO 锁待优化，可以优化为并发集合来控制，手动释放。 目前的经过常量区字符串对象进行加锁有点难释放的
         synchronized (userIdlock) {
@@ -200,11 +228,24 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
             //如果要用@Transactional注解，那么我们最好把这个数据库操作提取出来成一个方法来加。
             //所以我们这里通过使用编程式事务来控制事务的范围。
             Long newSpaceId = transactionTemplate.execute(status -> {
-                boolean exists = this.lambdaQuery().eq(Space::getUserId, userId).exists();
-                ThrowUtil.throwIf(exists, ErrorCode.OPERATION_ERROR, "每个用户仅能有一个私有空间");
+                boolean exists = this.lambdaQuery()
+                        .eq(Space::getUserId, userId)
+                        .eq(Space::getSpaceType,space.getSpaceType())
+                        .exists();
+                ThrowUtil.throwIf(exists, ErrorCode.OPERATION_ERROR, "每个用户仅能有一个私有空间和一个团队空间。");
                 // 写入数据库
                 boolean result = this.save(space);
                 ThrowUtil.throwIf(!result, ErrorCode.OPERATION_ERROR);
+                //创建成功之后，判断空间是否是团队空间，如果是团队空间我们还需要自动往用户空间表插入一条控件创建人信息。
+                if(SpaceTypeEnum.TEAM.getValue()==space.getSpaceType()){
+                    SpaceUser spaceUser = new SpaceUser();
+                    spaceUser.setSpaceId(space.getId());
+                    spaceUser.setUserId(userId);
+                    //创始人默认是管理员权限。
+                    spaceUser.setSpaceRole(SpaceRoleEnum.ADMIN.getValue());
+                    result = spaceUserService.save(spaceUser);
+                    ThrowUtil.throwIf(!result, ErrorCode.OPERATION_ERROR, "创建团队成员记录失败");
+                }
                 // 返回新写入的数据 id
                 return space.getId();
             });

@@ -97,3 +97,25 @@ CREATE TABLE IF NOT EXISTS space
 # -- 创建索引
 # CREATE INDEX idx_space_id ON picture (space_id);
 
+
+ALTER TABLE space
+    ADD COLUMN space_type int default 0 not null comment '空间类型：0-私有 1-团队';
+
+CREATE INDEX idx_spaceType ON space (space_type);
+
+
+
+CREATE TABLE IF NOT EXISTS space_user
+(
+    id           BIGINT AUTO_INCREMENT COMMENT 'ID' PRIMARY KEY,
+    space_id     BIGINT                             NOT NULL COMMENT '空间ID',
+    user_id      BIGINT                             NOT NULL COMMENT '用户ID',
+    space_role   VARCHAR(128) DEFAULT 'viewer'      NULL COMMENT '空间角色：viewer/editor/admin',
+    create_time  DATETIME     DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    update_time  DATETIME     DEFAULT CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    -- 索引设计
+    UNIQUE KEY uk_space_id_user_id (space_id, user_id), -- 唯一索引，用户在一个空间中只能有一个角色
+    INDEX idx_space_id (space_id),                    -- 提升按空间查询的性能
+    INDEX idx_user_id (user_id)                       -- 提升按用户查询的性能
+) COMMENT '空间用户关联' COLLATE = utf8mb4_unicode_ci;
+

@@ -17,17 +17,17 @@ import com.voracityrat.memehubbackend.model.dto.picture.*;
 import com.voracityrat.memehubbackend.model.entity.Picture;
 import com.voracityrat.memehubbackend.model.entity.Space;
 import com.voracityrat.memehubbackend.model.entity.User;
+import com.voracityrat.memehubbackend.model.enums.SpaceTypeEnum;
 import com.voracityrat.memehubbackend.model.vo.picture.BatchPictureUploadVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PicturePagesVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureTagCategoryVO;
 import com.voracityrat.memehubbackend.model.vo.picture.PictureVO;
 import com.voracityrat.memehubbackend.model.vo.user.LoginUserVO;
-import com.voracityrat.memehubbackend.service.PictureService;
-import com.voracityrat.memehubbackend.service.SpaceService;
-import com.voracityrat.memehubbackend.service.UserPictureService;
-import com.voracityrat.memehubbackend.service.UserService;
+import com.voracityrat.memehubbackend.service.*;
+import com.voracityrat.memehubbackend.spaceauthcheck.model.SpaceUserPermissionConstant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -62,6 +62,8 @@ public class PictureController {
 
     @Resource
     private TransactionTemplate transactionTemplate;
+    @Autowired
+    private SpaceUserService spaceUserService;
 
     @PostMapping("/upload")
     public BaseResponse<PictureVO> uploadPicture(@RequestPart("file")MultipartFile multipartFile,
@@ -147,6 +149,7 @@ public class PictureController {
         }
         Picture picture = pictureService.getPictureByIdForAdmin(id);
         //空间权限校验，校验一下这个图片你是否有权限。 只校验非公共图片的，也就是spaceId为非空的。
+        //TODO，这里可以增加一个查看图片的权限，空间的话，个人空间仅限创建者，团队空间至少需要有查看图片权限。
         Long spaceId = picture.getSpaceId();
         if (spaceId!=null){
             User loginUser = userService.getLoginUser(request);
@@ -216,8 +219,15 @@ public class PictureController {
             Space space = spaceService.getById(spaceId);
             ThrowUtil.throwIf(space==null,ErrorCode.PARAMS_ERROR,"空间不存在");
             //如果空间存在，那么需要校验当前登录用户是否是空间的创建人了。
-            if (!tempLoginUser.getId().equals(space.getUserId())){
-                throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"当前用户并非空间管理员,无权限");
+            //新增，空间分为个人空间和团队空间，根据空间类型分为个人空间校验，团队空间校验。
+            if (SpaceTypeEnum.TEAM.getValue()==space.getSpaceType()){
+                //团队空间校验,权限需要，图片查看权限。
+                spaceUserService.checkSpaceAuth(spaceId,loginUserId, SpaceUserPermissionConstant.PICTURE_VIEW);
+            }else{
+                //个人空间校验
+                if (!tempLoginUser.getId().equals(space.getUserId())){
+                    throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"当前用户并非空间管理员,无权限");
+                }
             }
             //设置为false,去查询空间图库。
             pictureVOPagesRequest.setNullSpaceId(false);
@@ -311,7 +321,34 @@ public class PictureController {
         //权限校验
         User loginUser = userService.getLoginUser(request);
         Picture oldPicture = pictureService.getById(deleteRequest.getId());
-        pictureService.checkPictureAuth(loginUser,oldPicture);
+        //校验图片权限，
+        if (oldPicture==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"图片权限校验---图片为空");
+        }
+        Long spaceId = oldPicture.getSpaceId();
+        Long loginUserId = loginUser.getId();
+        if (spaceId==null){
+            //公共图库 ，仅限管理员或者图片创建者有权限。
+            if ( !oldPicture.getUserId().equals(loginUserId) && !userService.isAdmin(loginUser)){
+                //不是创建者也不是管理员直接抛出异常
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+            }
+        }else{
+            //私有空间图库，仅创建者或者管理员有权限
+            //团队空间图库，需要有图片删除权限。
+            Space space = spaceService.getById(spaceId);
+            ThrowUtil.throwIf(space==null, ErrorCode.SYSTEM_ERROR,"不存在该团队空间");
+            if (SpaceTypeEnum.TEAM.getValue()==space.getSpaceType()){
+                //团队空间，需要校验是否有图片删除权限
+                spaceUserService.checkSpaceAuth(spaceId,loginUserId,SpaceUserPermissionConstant.PICTURE_DELETE);
+            }else{
+                //个人空间。管理员或者空间创建者有权限删除图片
+                if (!oldPicture.getUserId().equals(loginUserId) && !userService.isAdmin(loginUser) ){
+                    throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+                }
+            }
+
+        }
         //开启事务
         transactionTemplate.execute(status -> {
             boolean ret = pictureService.removeById(deleteRequest.getId());
@@ -319,7 +356,6 @@ public class PictureController {
                 throw new BusinessException(ErrorCode.OPERATION_ERROR,"删除图片失败");
             }
             //如果图片有空间id,那么我们对相应图片的空间进行一个额度更新。  没有就是公共图库的图片嘛。
-            Long spaceId = oldPicture.getSpaceId();
             if (spaceId!=null){
                 boolean update = spaceService.lambdaUpdate()
                         .eq(Space::getId, spaceId)

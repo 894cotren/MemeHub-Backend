@@ -8,6 +8,7 @@
             <id property="id" column="id" />
             <result property="spaceName" column="space_name" />
             <result property="spaceLevel" column="space_level" />
+            <result property="spaceType" column="space_type" />
             <result property="maxSize" column="max_size" />
             <result property="maxCount" column="max_count" />
             <result property="totalSize" column="total_size" />
@@ -20,7 +21,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id,space_name,space_level,max_size,max_count,total_size,
+        id,space_name,space_level,space_type,max_size,max_count,total_size,
         total_count,user_id,create_time,edit_time,update_time,
         is_delete
     </sql>

@@ -118,6 +118,7 @@ public class SpaceController {
 
     /**
      * 根据 id 获取空间（封装类）
+     * TODO，获取空间类需不需要加权限啊，感觉谁看都可以啊。
      */
     @GetMapping("/get/vo")
     public BaseResponse<SpaceVO> getSpaceVOById(long id, HttpServletRequest request) {
