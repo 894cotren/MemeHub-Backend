@@ -185,9 +185,18 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         } else {
             //普通用户
             picture.setReviewStatus(PictureReviewEnum.REVIEWING.getValue());
+            //普通用户如果传入了spaceId，那么传入空间的图片自动过审。
+            //如果spaceid不为空，那么就是空间上传图片，我们不需要管理员审核，我们这里直接通过审核
+            Long spaceId = picture.getSpaceId();
+            if (spaceId!=null){
+                picture.setReviewStatus(1);
+                picture.setReviewMessage("空间图片自动过审");
+                picture.setReviewTime(new Date());
+            }
         }
     }
 
+    //注意啊，我的二次上传更新图片的方法调用的是这个。
     @Override
     public boolean updatePicture(PictureUpdateRequest pictureUpdateRequest, User loginUser) {
         /**
@@ -207,6 +216,13 @@ public class PictureServiceImpl extends ServiceImpl<PictureMapper, Picture>
         Picture oldPicture = this.getById(pictureUpdateRequest.getId());
         ThrowUtil.throwIf(oldPicture==null,ErrorCode.NOT_FOUND_ERROR);
         //权限校验，只能图片上传者本人，或者管理员更新
+        //新增空间  这里为了避免上传的时候还有空间id，然后填充审核的时候根据空间id进行判断是否审核的。上传后二次更新数据会导致这里又盖回去了。
+        //所以我们在这里加一个逻辑,跟新图片spaceId不变的。
+        if(oldPicture.getSpaceId()!=null){
+            picture.setSpaceId(oldPicture.getSpaceId());
+        }
+
+        //权限校验
         if (!loginUser.getId().equals(oldPicture.getUserId()) && !loginUser.getUserRole().equals(UserConstant.ADMIN)){
             throw new BusinessException(ErrorCode.OPERATION_ERROR,"只能图片上传者或者管理员可以更改图片信息");
         }
