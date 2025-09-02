@@ -59,7 +59,24 @@ public class UserController {
         String userAccount = userLoginRequest.getUserAccount();
         String userPassword = userLoginRequest.getUserPassword();
 
+//        // 登录前输出session信息
+//        System.out.println("=== 登录前Session信息 ===");
+//        System.out.println("Session ID: " + request.getSession().getId());
+//        System.out.println("Session最大非活动时间: " + request.getSession().getMaxInactiveInterval() + " 秒");
+//        System.out.println("Session创建时间: " + new java.util.Date(request.getSession().getCreationTime()));
+//        System.out.println("Session最后访问时间: " + new java.util.Date(request.getSession().getLastAccessedTime()));
+//        System.out.println("==================================");
+//
         LoginUserVO loginUserVo = userService.userLogin(userAccount, userPassword, request);
+//
+//        // 登录后输出session信息
+//        System.out.println("=== 登录后Session信息 ===");
+//        System.out.println("Session ID: " + request.getSession().getId());
+//        System.out.println("Session最大非活动时间: " + request.getSession().getMaxInactiveInterval() + " 秒");
+//        System.out.println("Session创建时间: " + new java.util.Date(request.getSession().getCreationTime()));
+//        System.out.println("Session最后访问时间: " + new java.util.Date(request.getSession().getLastAccessedTime()));
+//        System.out.println("Session包含登录用户: " + (request.getSession().getAttribute(UserConstant.USER_LOGIN_STATUS) != null));
+//        System.out.println("=================================");
         return ResultUtil.success(loginUserVo);
     }
 
@@ -71,6 +88,17 @@ public class UserController {
         if (request==null){
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
+//
+//        // 输出session信息用于调试
+//        System.out.println("=== 获取登录用户Session信息 ===");
+//        System.out.println("Session ID: " + request.getSession().getId());
+//        System.out.println("Session最大非活动时间: " + request.getSession().getMaxInactiveInterval() + " 秒");
+//        System.out.println("Session创建时间: " + new java.util.Date(request.getSession().getCreationTime()));
+//        System.out.println("Session最后访问时间: " + new java.util.Date(request.getSession().getLastAccessedTime()));
+//        long timeSinceLastAccess = (System.currentTimeMillis() - request.getSession().getLastAccessedTime()) / 1000;
+//        System.out.println("距离最后访问的时间: " + timeSinceLastAccess + " 秒");
+//        System.out.println("===================================");
+//
         User loginUser = userService.getLoginUser(request);
         return ResultUtil.success(userService.getLoginUserVo(loginUser));
     }

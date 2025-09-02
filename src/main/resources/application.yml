@@ -14,6 +14,8 @@ server:
         secure: false
         http-only: true
         same-site: lax
+      # 明确设置session超时时间，防止被Tomcat默认值覆盖
+      timeout: 1296000s
 spring:
   application:
     name: MemeHub-Backend
@@ -25,7 +27,16 @@ spring:
       max-file-size: 10MB
   #配置session存储15天过期   "我们session目前只存储了登录用户的信息"
   session:
-    timeout: 1296000
+    timeout: 1296000s
+    # 禁用Spring Session的store-type，强制使用默认的内存存储
+    store-type: none
+
+# 调试配置 - 启用session调试信息
+logging:
+  level:
+    org.springframework.session: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web.servlet: DEBUG
 
 # mybatis-plus配置信息
 mybatis-plus:
