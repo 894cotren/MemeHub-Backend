@@ -2,6 +2,7 @@ package com.voracityrat.memehubbackend.controller;
 
 
 import cn.hutool.core.util.ObjUtil;
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -28,7 +29,9 @@ import com.voracityrat.memehubbackend.spaceauthcheck.model.SpaceUserPermissionCo
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,6 +40,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  *
@@ -59,9 +63,12 @@ public class PictureController {
     @Resource
     private SpaceService spaceService;
 
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     @Resource
     private TransactionTemplate transactionTemplate;
+
     @Autowired
     private SpaceUserService spaceUserService;
 
@@ -233,7 +240,28 @@ public class PictureController {
             pictureVOPagesRequest.setNullSpaceId(false);
         }
 
+        //插入缓存
+        // 构建缓存 key
+        String queryCondition = JSONUtil.toJsonStr(pictureVOPagesRequest);
+        //对查询条件进行单向加密，单向加密可验证数据完整性，一样的数据单向加密也一样
+        String hashKey = DigestUtils.md5DigestAsHex(queryCondition.getBytes());
+        String redisKey = "memehub:getPicturePagesVO:" + hashKey;
+        //根据构建的key去redis搜索
+        String cacheString = stringRedisTemplate.opsForValue().get(redisKey);
+        //如果不为空那么就缓存命中了
+        if (cacheString!=null){
+            Page<PicturePagesVO> cachedPages = JSONUtil.toBean(cacheString, Page.class);
+            return ResultUtil.success(cachedPages);
+        }
         Page<PicturePagesVO> pages = pictureService.getPictureVOPages(pictureVOPagesRequest,loginUserId);
+
+        //更新redis缓存
+        String newCache = JSONUtil.toJsonStr(pages);
+        // 5 - 10 分钟随机过期，防止雪崩
+        int cacheExpireTime = 300 +  RandomUtil.randomInt(0, 300);
+        stringRedisTemplate.opsForValue().set(redisKey,newCache,cacheExpireTime, TimeUnit.SECONDS);
+
+        //返回结果
         return ResultUtil.success(pages);
     }
 
