@@ -99,6 +99,15 @@ public class SpaceServiceImpl extends ServiceImpl<SpaceMapper, Space>
     public void fillSpaceBySpaceLevel(Space space) {
         // 根据空间级别，自动填充限额，根据我们定义好的枚举类来填充。
         //但是下面判断做了区分，如果我们的管理员进行的更新或者创建的时候手动给了值，那么我们就不动它。
+        //TODO 空间的信息管理员更改没有更为便捷，有点随意，我想的是如下：不过算了把。
+        /**
+         *         // 如果更改的是空间等级权限，我们也得跟着把对应的图片上限，空间上限做一个调整。暂时做一个模块化调整。
+         *         // 先写死space_level的规格。如果level改变了，我们直接变为对应的等级权益，否则是其他调整不管。
+         *         if (space.getSpaceLevel()!=null && !oldSpace.getSpaceLevel().equals(space.getSpaceLevel())){
+         *             //如果新的更改的level不为空，并且不等于老的空间等级，那么就做了修改，我们直接使用对用的来填充数据。
+         *
+         *         }
+         */
         SpaceLevelEnum spaceLevelEnum = SpaceLevelEnum.getEnumByValue(space.getSpaceLevel());
         if (spaceLevelEnum != null) {
             long maxSize = spaceLevelEnum.getMaxSize();
