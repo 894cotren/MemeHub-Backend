@@ -69,7 +69,9 @@ public class UserPictureServiceImpl extends ServiceImpl<UserPictureMapper, UserP
         if (userId == null || picId == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        //锁当前用户id
+        //锁当前用户id,
+        // 如果集合不存在该key（1参数），执行后面语句作为value放入集合，并返回该value
+        //如果集合存在该key，返回该object  （高并发如果别人创建了，就返回的是同一个对象。）
         Object lock = UserConstant.LOCK_MAP.computeIfAbsent(userId, key -> new Object());
         synchronized (lock){
             try {
