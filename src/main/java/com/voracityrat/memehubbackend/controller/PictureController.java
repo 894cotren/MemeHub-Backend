@@ -199,6 +199,7 @@ public class PictureController {
     /**
      * 用户分页查询，返回高度脱敏图片信息
      *  这里尽量整通用
+     *  为了面试，不使用缓存架构
      * @param pictureVOPagesRequest
      * @return
      */
@@ -249,47 +250,15 @@ public class PictureController {
             //设置为false,去查询空间图库。
             pictureVOPagesRequest.setNullSpaceId(false);
         }
-
-        //缓存构建
-        // 构建缓存 key
-        String queryCondition = JSONUtil.toJsonStr(pictureVOPagesRequest);
-        //对查询条件进行单向加密，单向加密可验证数据完整性，一样的数据单向加密也一样
-        String hashKey = DigestUtils.md5DigestAsHex(queryCondition.getBytes());
-        String cacheKey = "memehub:getPicturePagesVO:" + hashKey;
-        //1. 搜索本地缓存，如果本地缓存有那么直接返回
-        String localCacheString = LOCAL_CACHE.getIfPresent(cacheKey);
-        //如果不为空那么就缓存命中了
-        if (localCacheString!=null){
-            Page<PicturePagesVO> cachedPages = JSONUtil.toBean(localCacheString, Page.class);
-            return ResultUtil.success(cachedPages);
-        }
-        //2.查找redis缓存，redis缓存命中需要构建一下本地缓存
-        String cacheString = stringRedisTemplate.opsForValue().get(cacheKey);
-        //如果不为空那么就缓存命中了
-        if (cacheString!=null){
-            Page<PicturePagesVO> cachedPages = JSONUtil.toBean(cacheString, Page.class);
-            //构建本地缓存
-            LOCAL_CACHE.put(cacheKey,JSONUtil.toJsonStr(cachedPages));
-            return ResultUtil.success(cachedPages);
-        }
-        //未命中缓存查找数据库
+        //查找数据库
         Page<PicturePagesVO> pages = pictureService.getPictureVOPages(pictureVOPagesRequest,loginUserId);
-
-        //更新本地缓存
-        String newCache = JSONUtil.toJsonStr(pages);
-        LOCAL_CACHE.put(cacheKey,newCache);
-        //更新redis缓存
-        // 5 - 10 分钟随机过期，防止雪崩
-        int cacheExpireTime = 300 +  RandomUtil.randomInt(0, 300);
-        stringRedisTemplate.opsForValue().set(cacheKey,newCache,cacheExpireTime, TimeUnit.SECONDS);
-
         //返回结果
         return ResultUtil.success(pages);
     }
 
 
     /**
-     * 缓存用的查询（留个备份）
+     * 缓存用的查询（留个备份） 实际为了效果不这么搞。
      * @param pictureVOPagesRequest
      * @param request
      * @return
