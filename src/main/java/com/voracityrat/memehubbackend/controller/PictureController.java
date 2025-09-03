@@ -289,6 +289,100 @@ public class PictureController {
 
 
     /**
+     * 缓存用的查询（留个备份）
+     * @param pictureVOPagesRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/getPicturePagesVOCache")
+    public BaseResponse<Page<PicturePagesVO>> getPicturePagesVOCache(@RequestBody PictureVOPagesRequest pictureVOPagesRequest,
+                                                                HttpServletRequest request) {
+        ThrowUtil.throwIf(pictureVOPagesRequest == null, ErrorCode.PARAMS_ERROR);
+        int pageSize = pictureVOPagesRequest.getPageSize();
+        ThrowUtil.throwIf(pageSize > 20, ErrorCode.OPERATION_ERROR, "用户不允许查询每页20条以上");
+        //此处应该修改为用户可以未登录的，未登录传入null即可，里面已经做好为空的处理了。 所以做了如下手动处理
+//        Long loginUserId = userService.getLoginUser(request).getId();  这段代码如果没有登录用户会报错，我们手动处理下吧。
+        //从请求体里获取到用户对象并转换
+        Object userObj = request.getSession().getAttribute(UserConstant.USER_LOGIN_STATUS);
+        LoginUserVO loginUser = (LoginUserVO) userObj;
+        Long loginUserId = null;
+        //如果不为空去查询
+        if (ObjUtil.isNotEmpty(loginUser)){
+            //查询用户信息，拿到最新的用户对象  ，防止缓存跟数据不一致。
+            User laestUser = userService.getById(loginUser.getId());
+            //判断是否为空
+            if (laestUser==null){
+                //为空抛出异常  （可能被管理员封禁了）
+                throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+            }
+            loginUserId=laestUser.getId();
+        }
+
+        //新增了空间功能。如果没传入空间id，那设置nullspaceId为true然后放行查看公共图库。
+        //如果是私有空间，那么需要校验权限了,我们需要校验当前用户是不是空间创建人，是才可以查看空间图库
+        Long spaceId = pictureVOPagesRequest.getSpaceId();
+        if (spaceId==null){
+            pictureVOPagesRequest.setNullSpaceId(true);
+        }else{
+            User tempLoginUser = userService.getLoginUser(request);
+            Space space = spaceService.getById(spaceId);
+            ThrowUtil.throwIf(space==null,ErrorCode.PARAMS_ERROR,"空间不存在");
+            //如果空间存在，那么需要校验当前登录用户是否是空间的创建人了。
+            //新增，空间分为个人空间和团队空间，根据空间类型分为个人空间校验，团队空间校验。
+            if (SpaceTypeEnum.TEAM.getValue()==space.getSpaceType()){
+                //团队空间校验,权限需要，图片查看权限。
+                spaceUserService.checkSpaceAuth(spaceId,loginUserId, SpaceUserPermissionConstant.PICTURE_VIEW);
+            }else{
+                //个人空间校验
+                if (!tempLoginUser.getId().equals(space.getUserId())){
+                    throw new BusinessException(ErrorCode.NO_AUTH_ERROR,"当前用户并非空间管理员,无权限");
+                }
+            }
+            //设置为false,去查询空间图库。
+            pictureVOPagesRequest.setNullSpaceId(false);
+        }
+
+        //缓存构建
+        // 构建缓存 key
+        String queryCondition = JSONUtil.toJsonStr(pictureVOPagesRequest);
+        //对查询条件进行单向加密，单向加密可验证数据完整性，一样的数据单向加密也一样
+        String hashKey = DigestUtils.md5DigestAsHex(queryCondition.getBytes());
+        String cacheKey = "memehub:getPicturePagesVO:" + hashKey;
+        //1. 搜索本地缓存，如果本地缓存有那么直接返回
+        String localCacheString = LOCAL_CACHE.getIfPresent(cacheKey);
+        //如果不为空那么就缓存命中了
+        if (localCacheString!=null){
+            Page<PicturePagesVO> cachedPages = JSONUtil.toBean(localCacheString, Page.class);
+            return ResultUtil.success(cachedPages);
+        }
+        //2.查找redis缓存，redis缓存命中需要构建一下本地缓存
+        String cacheString = stringRedisTemplate.opsForValue().get(cacheKey);
+        //如果不为空那么就缓存命中了
+        if (cacheString!=null){
+            Page<PicturePagesVO> cachedPages = JSONUtil.toBean(cacheString, Page.class);
+            //构建本地缓存
+            LOCAL_CACHE.put(cacheKey,JSONUtil.toJsonStr(cachedPages));
+            return ResultUtil.success(cachedPages);
+        }
+        //未命中缓存查找数据库
+        Page<PicturePagesVO> pages = pictureService.getPictureVOPages(pictureVOPagesRequest,loginUserId);
+
+        //更新本地缓存
+        String newCache = JSONUtil.toJsonStr(pages);
+        LOCAL_CACHE.put(cacheKey,newCache);
+        //更新redis缓存
+        // 5 - 10 分钟随机过期，防止雪崩
+        int cacheExpireTime = 300 +  RandomUtil.randomInt(0, 300);
+        stringRedisTemplate.opsForValue().set(cacheKey,newCache,cacheExpireTime, TimeUnit.SECONDS);
+
+        //返回结果
+        return ResultUtil.success(pages);
+    }
+
+
+
+
+    /**
      * 用户收藏图片
      *
      * @param favoritePictureRequest
