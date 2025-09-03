@@ -6,6 +6,8 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.voracityrat.memehubbackend.annotaion.AuthCheck;
 import com.voracityrat.memehubbackend.common.BaseResponse;
 import com.voracityrat.memehubbackend.common.ResultUtil;
@@ -37,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -71,6 +74,13 @@ public class PictureController {
 
     @Autowired
     private SpaceUserService spaceUserService;
+
+
+    private final Cache<String, String> LOCAL_CACHE = Caffeine.newBuilder()
+            .initialCapacity(1024)
+            .maximumSize(10_000)//最大10000条
+            .expireAfterWrite(Duration.ofMinutes(5))            //缓存五分钟后移除
+            .build();
 
     @PostMapping("/upload")
     public BaseResponse<PictureVO> uploadPicture(@RequestPart("file")MultipartFile multipartFile,
@@ -240,26 +250,38 @@ public class PictureController {
             pictureVOPagesRequest.setNullSpaceId(false);
         }
 
-        //插入缓存
+        //缓存构建
         // 构建缓存 key
         String queryCondition = JSONUtil.toJsonStr(pictureVOPagesRequest);
         //对查询条件进行单向加密，单向加密可验证数据完整性，一样的数据单向加密也一样
         String hashKey = DigestUtils.md5DigestAsHex(queryCondition.getBytes());
-        String redisKey = "memehub:getPicturePagesVO:" + hashKey;
-        //根据构建的key去redis搜索
-        String cacheString = stringRedisTemplate.opsForValue().get(redisKey);
+        String cacheKey = "memehub:getPicturePagesVO:" + hashKey;
+        //1. 搜索本地缓存，如果本地缓存有那么直接返回
+        String localCacheString = LOCAL_CACHE.getIfPresent(cacheKey);
+        //如果不为空那么就缓存命中了
+        if (localCacheString!=null){
+            Page<PicturePagesVO> cachedPages = JSONUtil.toBean(localCacheString, Page.class);
+            return ResultUtil.success(cachedPages);
+        }
+        //2.查找redis缓存，redis缓存命中需要构建一下本地缓存
+        String cacheString = stringRedisTemplate.opsForValue().get(cacheKey);
         //如果不为空那么就缓存命中了
         if (cacheString!=null){
             Page<PicturePagesVO> cachedPages = JSONUtil.toBean(cacheString, Page.class);
+            //构建本地缓存
+            LOCAL_CACHE.put(cacheKey,JSONUtil.toJsonStr(cachedPages));
             return ResultUtil.success(cachedPages);
         }
+        //未命中缓存查找数据库
         Page<PicturePagesVO> pages = pictureService.getPictureVOPages(pictureVOPagesRequest,loginUserId);
 
-        //更新redis缓存
+        //更新本地缓存
         String newCache = JSONUtil.toJsonStr(pages);
+        LOCAL_CACHE.put(cacheKey,newCache);
+        //更新redis缓存
         // 5 - 10 分钟随机过期，防止雪崩
         int cacheExpireTime = 300 +  RandomUtil.randomInt(0, 300);
-        stringRedisTemplate.opsForValue().set(redisKey,newCache,cacheExpireTime, TimeUnit.SECONDS);
+        stringRedisTemplate.opsForValue().set(cacheKey,newCache,cacheExpireTime, TimeUnit.SECONDS);
 
         //返回结果
         return ResultUtil.success(pages);
